@@ -24,9 +24,5 @@ WORKDIR /app/backend
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD python -c "import urllib.request,os; urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\",8000)}/')" || exit 1
-
 # Run the application - use PORT env var if set, default to 8000
 CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}

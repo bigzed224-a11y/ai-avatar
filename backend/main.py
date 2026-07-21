@@ -29,7 +29,10 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 # Serve frontend static files
 if FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+    try:
+        app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+    except Exception:
+        pass
 
 
 @app.get("/app")
