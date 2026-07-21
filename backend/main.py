@@ -23,8 +23,31 @@ app.add_middleware(
 # Directories
 UPLOAD_DIR = Path("uploads")
 OUTPUT_DIR = Path("output")
+FRONTEND_DIR = Path("../frontend")
 UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
+
+# Serve frontend static files
+if FRONTEND_DIR.exists():
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
+
+@app.get("/app")
+async def serve_app():
+    """Serve the main frontend app."""
+    index_path = FRONTEND_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
+    return {"message": "Frontend not found"}
+
+
+@app.get("/realtime")
+async def serve_realtime():
+    """Serve the real-time pose detection page."""
+    realtime_path = FRONTEND_DIR / "realtime.html"
+    if realtime_path.exists():
+        return FileResponse(realtime_path)
+    return {"message": "Realtime page not found"}
 
 # In-memory stores
 uploaded_photos = {}
@@ -39,12 +62,12 @@ active_connections = []
 
 @app.get("/")
 async def root():
-    from animator import check_sadtalker_installed
     return {
         "message": "AI Avatar Lip-Sync API",
         "status": "running",
         "version": "2.0.0",
-        "features": ["tts", "animation", "realtime-pose", "voice-options", "history"]
+        "features": ["tts", "animation", "realtime-pose", "voice-options", "history"],
+        "frontend": "/app"
     }
 
 
