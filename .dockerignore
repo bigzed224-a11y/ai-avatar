@@ -1,0 +1,17 @@
+.git
+.gitignore
+*.md
+__pycache__
+*.pyc
+*.pyo
+.env
+.venv
+venv
+node_modules
+.DS_Store
+Thumbs.db
+*.log
+backend/uploads/*
+backend/output/*
+!backend/uploads/.gitkeep
+!backend/output/.gitkeep
