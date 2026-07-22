@@ -1130,6 +1130,21 @@ textarea:focus {
 @media (max-width: 768px) {
     .nav-links {
         display: none;
+        position: absolute;
+        top: 72px;
+        right: 16px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        flex-direction: column;
+        gap: 16px;
+        z-index: 1001;
+    }
+
+    .nav-links.show {
+        display: flex;
     }
 
     .mobile-menu-btn {
@@ -1137,16 +1152,25 @@ textarea:focus {
     }
 
     .hero {
-        padding: 100px 24px 60px;
+        padding: 100px 16px 60px;
     }
 
     .hero h1 {
-        font-size: 2.5rem;
+        font-size: 2.2rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1rem;
     }
 
     .hero-actions {
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
+    }
+
+    .hero-actions .btn {
+        width: 100%;
+        justify-content: center;
     }
 
     .hero-stats {
@@ -1160,7 +1184,7 @@ textarea:focus {
     }
 
     .section-header h2 {
-        font-size: 2rem;
+        font-size: 1.8rem;
     }
 
     .steps-grid {
@@ -1177,6 +1201,18 @@ textarea:focus {
         grid-template-columns: repeat(2, 1fr);
     }
 
+    .app-section {
+        padding: 60px 16px 40px;
+    }
+
+    .app-step {
+        padding: 20px 16px;
+    }
+
+    textarea {
+        min-height: 120px;
+    }
+
     .footer-content {
         flex-direction: column;
         gap: 32px;
@@ -1185,6 +1221,58 @@ textarea:focus {
     .footer-links {
         flex-direction: column;
         gap: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero h1 {
+        font-size: 1.8rem;
+    }
+
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .feature-card {
+        padding: 24px 20px;
+    }
+
+    .app-step {
+        padding: 16px 12px;
+    }
+
+    .voice-options {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .voice-btn {
+        padding: 10px 6px;
+    }
+
+    .voice-btn .voice-name {
+        font-size: 0.8rem;
+    }
+
+    .result-actions {
+        flex-direction: column;
+    }
+
+    .result-actions .btn {
+        width: 100%;
+    }
+
+    .toast {
+        left: 16px;
+        right: 16px;
+        transform: none;
+        bottom: 16px;
+        max-width: none;
+    }
+
+    @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
     }
 }
 
