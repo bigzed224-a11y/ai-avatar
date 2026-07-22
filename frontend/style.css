@@ -894,8 +894,91 @@ textarea:focus {
 .progress-text {
     font-size: 0.85rem;
     color: var(--text-muted);
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-top: 10px;
-    display: block;
+}
+
+.progress-time {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.progress-stages {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-top: 24px;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+}
+
+.stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    opacity: 0.4;
+    transition: opacity 0.3s;
+}
+
+.stage.active {
+    opacity: 1;
+}
+
+.stage.completed {
+    opacity: 0.7;
+}
+
+.stage-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gray-300);
+    transition: all 0.3s;
+}
+
+.stage.active .stage-dot {
+    background: var(--primary);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+    animation: pulse-stage 1s infinite;
+}
+
+.stage.completed .stage-dot {
+    background: var(--success);
+}
+
+@keyframes pulse-stage {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2); }
+    50% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.1); }
+}
+
+.stage span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.stage.active span {
+    color: var(--primary);
+}
+
+.stage-connector {
+    width: 40px;
+    height: 2px;
+    background: var(--gray-200);
+    margin: 0 4px;
+    margin-bottom: 20px;
+}
+
+.stage.completed + .stage-connector {
+    background: var(--success);
 }
 
 /* Result */

@@ -327,15 +327,40 @@
                                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
                                     <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                    <line x1="12" y1="19" x2="12" y2="22"></line>
                                 </svg>
                             </div>
                         </div>
-                        <p class="loading-text" id="loading-text">Generating your lip-sync video...</p>
+                        <p class="loading-text" id="loading-text">Initializing...</p>
                         <div class="loading-progress">
                             <div class="progress-bar">
                                 <div class="progress-fill" id="progress-fill"></div>
                             </div>
-                            <span class="progress-text" id="progress-text">0%</span>
+                            <div class="progress-info">
+                                <span class="progress-text" id="progress-text">0%</span>
+                                <span class="progress-time" id="progress-time"></span>
+                            </div>
+                        </div>
+                        <div class="progress-stages" id="progress-stages">
+                            <div class="stage" data-stage="tts">
+                                <div class="stage-dot"></div>
+                                <span>TTS</span>
+                            </div>
+                            <div class="stage-connector"></div>
+                            <div class="stage" data-stage="analyze">
+                                <div class="stage-dot"></div>
+                                <span>Analyze</span>
+                            </div>
+                            <div class="stage-connector"></div>
+                            <div class="stage" data-stage="animate">
+                                <div class="stage-dot"></div>
+                                <span>Animate</span>
+                            </div>
+                            <div class="stage-connector"></div>
+                            <div class="stage" data-stage="render">
+                                <div class="stage-dot"></div>
+                                <span>Render</span>
+                            </div>
                         </div>
                     </div>
                     

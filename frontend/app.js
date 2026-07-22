@@ -199,17 +199,71 @@ async function handleGenerate() {
     el.resultContainer.classList.add('hidden');
     document.getElementById('result-section').classList.add('active');
 
+    // Progress stages
+    const stages = [
+        { progress: 15, text: 'Initializing TTS engine...', duration: 800, stage: 'tts' },
+        { progress: 35, text: 'Generating speech audio...', duration: 1500, stage: 'tts' },
+        { progress: 55, text: 'Analyzing audio for lip sync...', duration: 1200, stage: 'analyze' },
+        { progress: 75, text: 'Generating face animation...', duration: 2000, stage: 'animate' },
+        { progress: 90, text: 'Rendering video frames...', duration: 1500, stage: 'render' },
+        { progress: 95, text: 'Encoding final video...', duration: 1000, stage: 'render' },
+    ];
+
+    let currentStage = 0;
     let progress = 0;
+    const startTime = Date.now();
+    const progressTime = document.getElementById('progress-time');
+
+    // Reset stage indicators
+    document.querySelectorAll('.stage').forEach(s => {
+        s.classList.remove('active', 'completed');
+    });
+
+    function updateStageIndicators(stageName) {
+        const stageOrder = ['tts', 'analyze', 'animate', 'render'];
+        const currentIdx = stageOrder.indexOf(stageName);
+
+        document.querySelectorAll('.stage').forEach(s => {
+            const sName = s.dataset.stage;
+            const sIdx = stageOrder.indexOf(sName);
+            s.classList.remove('active', 'completed');
+            if (sIdx < currentIdx) s.classList.add('completed');
+            else if (sIdx === currentIdx) s.classList.add('active');
+        });
+    }
+
+    // Animate through stages
     const progressInterval = setInterval(() => {
-        if (progress < 90) {
-            progress += Math.random() * 10;
-            updateProgress(progress);
+        // Update elapsed time
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        progressTime.textContent = `${elapsed}s`;
+
+        if (currentStage < stages.length) {
+            const stage = stages[currentStage];
+            const stageStart = stages.slice(0, currentStage).reduce((sum, s) => sum + s.duration, 0);
+
+            if (Date.now() - startTime > stageStart + stage.duration) {
+                currentStage++;
+                if (currentStage < stages.length) {
+                    el.loadingText.textContent = stages[currentStage].text;
+                    updateProgress(stages[currentStage].progress);
+                    updateStageIndicators(stages[currentStage].stage);
+                }
+            } else {
+                // Smooth interpolation within stage
+                const stageProgress = (Date.now() - startTime - stageStart) / stage.duration;
+                const prevProgress = currentStage > 0 ? stages[currentStage - 1].progress : 0;
+                const smoothProgress = prevProgress + (stage.progress - prevProgress) * Math.min(1, stageProgress);
+                updateProgress(smoothProgress);
+                updateStageIndicators(stage.stage);
+            }
         }
-    }, 500);
+    }, 50);
 
     try {
         setStatus('Generating video...');
-        el.loadingText.textContent = 'Converting text to speech...';
+        el.loadingText.textContent = stages[0].text;
+        updateProgress(stages[0].progress);
 
         const response = await fetch(
             `${API_BASE}/api/speak?text=${encodeURIComponent(text)}&file_id=${state.uploadedFileId}&voice=${state.selectedVoice}`,
@@ -227,7 +281,8 @@ async function handleGenerate() {
         state.currentVideoId = data.video_id;
 
         updateProgress(100);
-        el.loadingText.textContent = 'Done!';
+        el.loadingText.textContent = 'Video ready!';
+        el.progressText.textContent = '100%';
 
         setTimeout(() => {
             el.loading.classList.add('hidden');
@@ -236,7 +291,7 @@ async function handleGenerate() {
             document.getElementById('result-section').classList.add('completed');
             setStatus('Video generated!');
             loadHistory();
-        }, 500);
+        }, 600);
 
     } catch (error) {
         clearInterval(progressInterval);
