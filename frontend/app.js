@@ -53,16 +53,11 @@ function setupMobileMenu() {
     const navLinks = document.querySelector('.nav-links');
     if (menuBtn && navLinks) {
         menuBtn.addEventListener('click', () => {
-            navLinks.style.display = navLinks.style.display === 'flex' ? 'none' : 'flex';
-            navLinks.style.position = 'absolute';
-            navLinks.style.top = '72px';
-            navLinks.style.right = '24px';
-            navLinks.style.background = 'var(--bg-card)';
-            navLinks.style.padding = '24px';
-            navLinks.style.borderRadius = '12px';
-            navLinks.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
-            navLinks.style.flexDirection = 'column';
-            navLinks.style.gap = '16px';
+            navLinks.classList.toggle('show');
+        });
+        // Close menu when clicking a link
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => navLinks.classList.remove('show'));
         });
     }
 }
