@@ -1,6 +1,7 @@
 // LipSync AI - Frontend Application
 
-const API_BASE = window.location.origin;
+// Backend API URL - Railway deployment
+const API_BASE = 'https://ai-avatar-staging.up.railway.app';
 
 // State
 let state = {
