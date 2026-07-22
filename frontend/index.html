@@ -274,13 +274,41 @@
                             </svg>
                         </div>
                         <p>Drag & drop an image here or click to browse</p>
-                        <span class="upload-hint">Supports JPG, PNG, WebP</span>
-                        <input type="file" id="photo-input" accept="image/*" hidden>
+                        <span class="upload-hint">Supports JPG, PNG, WebP (max 10MB)</span>
+                        <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp" hidden>
                     </div>
+                    <!-- Upload Progress -->
+                    <div id="upload-progress" class="hidden" style="margin-top: 16px;">
+                        <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--bg-secondary); border-radius: 10px;">
+                            <div class="upload-spinner"></div>
+                            <div style="flex: 1;">
+                                <p style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">Uploading photo...</p>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);" id="upload-status-text">Preparing...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Preview Container -->
                     <div id="preview-container" class="hidden">
-                        <img id="photo-preview" alt="Uploaded photo">
-                        <div class="preview-info">
-                            <p id="photo-name"></p>
+                        <div style="position: relative; display: inline-block;">
+                            <img id="photo-preview" alt="Uploaded photo" style="max-width: 100%; max-height: 280px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);">
+                            <div id="face-indicator" style="display: none; position: absolute; top: 10px; left: 10px; background: rgba(16, 185, 129, 0.9); color: white; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline; vertical-align: middle;">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                Face detected
+                            </div>
+                            <button id="remove-photo-btn" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="preview-info" style="margin-top: 12px;">
+                            <div>
+                                <p id="photo-name" style="font-weight: 500;"></p>
+                                <p id="photo-details" style="font-size: 0.8rem; color: var(--text-muted);"></p>
+                            </div>
                             <button id="change-photo-btn" class="btn btn-ghost btn-sm">Change Photo</button>
                         </div>
                     </div>

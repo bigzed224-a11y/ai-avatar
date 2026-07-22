@@ -46,6 +46,7 @@ function init() {
     checkBackend();
     setupMobileMenu();
     setupThemeToggle();
+    setupRemovePhoto();
 }
 
 function setupMobileMenu() {
@@ -87,7 +88,7 @@ function setupEventListeners() {
     el.dropZone.addEventListener('dragleave', () => el.dropZone.classList.remove('dragover'));
     el.dropZone.addEventListener('drop', handleDrop);
     el.photoInput.addEventListener('change', e => {
-        if (e.target.files[0]) uploadPhoto(e.target.files[0]);
+        if (e.target.files[0]) validateAndUpload(e.target.files[0]);
     });
     el.changePhotoBtn.addEventListener('click', () => {
         el.photoInput.value = '';
@@ -103,24 +104,65 @@ function handleDrop(e) {
     e.preventDefault();
     el.dropZone.classList.remove('dragover');
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-        uploadPhoto(file);
-    } else {
-        showError('Please upload an image file');
+    if (file) validateAndUpload(file);
+}
+
+function validateAndUpload(file) {
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+        showError('Please upload a JPG, PNG, or WebP image');
+        return;
     }
+
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+        showError('Image must be under 10MB');
+        return;
+    }
+
+    uploadPhoto(file);
 }
 
 // Upload Photo
 async function uploadPhoto(file) {
+    const uploadProgress = document.getElementById('upload-progress');
+    const uploadStatusText = document.getElementById('upload-status-text');
+    const dropZone = document.getElementById('drop-zone');
+
+    // Show progress
+    uploadProgress.classList.remove('hidden');
+    dropZone.classList.add('hidden');
+    uploadStatusText.textContent = 'Preparing upload...';
     setStatus('Uploading photo...');
+
+    // Preview image locally first
+    const previewUrl = URL.createObjectURL(file);
+    el.photoPreview.src = previewUrl;
+    el.photoName.textContent = file.name;
+
+    // Show file details
+    const sizeKB = (file.size / 1024).toFixed(1);
+    const details = document.getElementById('photo-details');
+    if (details) {
+        details.textContent = `${sizeKB}KB  ${file.type.split('/')[1].toUpperCase()}`;
+    }
+
+    // Detect face in preview
+    detectFaceInPreview(previewUrl);
+
     const formData = new FormData();
     formData.append('file', file);
 
     try {
+        uploadStatusText.textContent = 'Uploading to server...';
+
         const response = await fetch(`${API_BASE}/api/upload`, {
             method: 'POST',
             body: formData
         });
+
         if (!response.ok) {
             const err = await response.json();
             throw new Error(err.detail || 'Upload failed');
@@ -129,18 +171,71 @@ async function uploadPhoto(file) {
         const data = await response.json();
         state.uploadedFileId = data.file_id;
 
-        el.photoPreview.src = URL.createObjectURL(file);
-        el.photoName.textContent = file.name;
-        el.previewContainer.classList.remove('hidden');
-        el.dropZone.classList.add('hidden');
+        uploadStatusText.textContent = 'Upload complete!';
+        setTimeout(() => {
+            uploadProgress.classList.add('hidden');
+            el.previewContainer.classList.remove('hidden');
+            el.dropZone.classList.add('hidden');
 
-        document.getElementById('text-section').classList.add('active');
-        document.getElementById('upload-section').classList.add('completed');
+            document.getElementById('text-section').classList.add('active');
+            document.getElementById('upload-section').classList.add('completed');
 
-        updateGenerateButton();
-        setStatus('Photo uploaded');
+            updateGenerateButton();
+            setStatus('Photo uploaded');
+        }, 500);
     } catch (error) {
+        uploadProgress.classList.add('hidden');
+        dropZone.classList.remove('hidden');
         showError(error.message);
+    }
+}
+
+function detectFaceInPreview(imageUrl) {
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 100;
+        canvas.height = 100;
+        ctx.drawImage(img, 0, 0, 100, 100);
+        const data = ctx.getImageData(0, 0, 100, 100).data;
+
+        // Simple skin color detection
+        let skinPixels = 0;
+        for (let i = 0; i < data.length; i += 16) {
+            const r = data[i], g = data[i+1], b = data[i+2];
+            if (r > 100 && g > 60 && b > 40 && r > g && r > b && (r - g) > 15) {
+                skinPixels++;
+            }
+        }
+
+        const indicator = document.getElementById('face-indicator');
+        if (skinPixels > 50) {
+            indicator.style.display = 'block';
+        } else {
+            indicator.style.display = 'none';
+        }
+    };
+    img.src = imageUrl;
+}
+
+// Remove photo handler
+function setupRemovePhoto() {
+    const removeBtn = document.getElementById('remove-photo-btn');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.uploadedFileId = null;
+            el.photoPreview.src = '';
+            el.photoName.textContent = '';
+            el.previewContainer.classList.add('hidden');
+            el.dropZone.classList.remove('hidden');
+            document.getElementById('text-section').classList.remove('active');
+            document.getElementById('upload-section').classList.remove('completed');
+            document.getElementById('face-indicator').style.display = 'none';
+            updateGenerateButton();
+            setStatus('Ready');
+        });
     }
 }
 
