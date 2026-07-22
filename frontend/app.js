@@ -47,6 +47,7 @@ function init() {
     setupMobileMenu();
     setupThemeToggle();
     setupRemovePhoto();
+    setupRecording();
 }
 
 function setupMobileMenu() {
@@ -181,6 +182,7 @@ async function uploadPhoto(file) {
             document.getElementById('upload-section').classList.add('completed');
 
             updateGenerateButton();
+            updateRecordButton();
             setStatus('Photo uploaded');
         }, 500);
     } catch (error) {
@@ -200,20 +202,19 @@ function detectFaceInPreview(imageUrl) {
         ctx.drawImage(img, 0, 0, 100, 100);
         const data = ctx.getImageData(0, 0, 100, 100).data;
 
-        // Simple skin color detection
+        // Simple skin color detection (HSV-range heuristic)
         let skinPixels = 0;
         for (let i = 0; i < data.length; i += 16) {
             const r = data[i], g = data[i+1], b = data[i+2];
-            if (r > 100 && g > 60 && b > 40 && r > g && r > b && (r - g) > 15) {
+            if (r > 80 && g > 30 && b > 15 &&
+                r > b && (r - g) > 8 && (r + g + b) > 180) {
                 skinPixels++;
             }
         }
 
         const indicator = document.getElementById('face-indicator');
-        if (skinPixels > 50) {
-            indicator.style.display = 'block';
-        } else {
-            indicator.style.display = 'none';
+        if (indicator) {
+            indicator.style.display = skinPixels > 30 ? 'block' : 'none';
         }
     };
     img.src = imageUrl;
@@ -234,6 +235,7 @@ function setupRemovePhoto() {
             document.getElementById('upload-section').classList.remove('completed');
             document.getElementById('face-indicator').style.display = 'none';
             updateGenerateButton();
+            updateRecordButton();
             setStatus('Ready');
         });
     }
@@ -509,6 +511,133 @@ async function checkBackend() {
     } catch (error) {
         setStatus('Server not available');
         showError('Cannot connect to the server. Please try again later.');
+    }
+}
+
+// ===== RECORDING =====
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordStartTime = 0;
+let recordTimer = null;
+
+function setupRecording() {
+    const recordBtn = document.getElementById('record-btn');
+    if (!recordBtn) return;
+
+    recordBtn.addEventListener('click', toggleRecording);
+    updateRecordButton();
+}
+
+function updateRecordButton() {
+    const recordBtn = document.getElementById('record-btn');
+    if (!recordBtn) return;
+    recordBtn.disabled = !state.uploadedFileId;
+}
+
+async function toggleRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        stopRecording();
+    } else {
+        await startRecording();
+    }
+}
+
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recordedChunks = [];
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+        mediaRecorder.onstop = () => {
+            stream.getTracks().forEach(t => t.stop());
+            onRecordingComplete();
+        };
+
+        mediaRecorder.start();
+
+        // UI updates
+        const recordBtn = document.getElementById('record-btn');
+        const recordBtnText = document.getElementById('record-btn-text');
+        const recordStatus = document.getElementById('record-status');
+        const micIcon = recordBtn.querySelector('.mic-icon');
+        const stopIcon = recordBtn.querySelector('.stop-icon');
+
+        recordBtn.classList.add('recording');
+        recordBtnText.textContent = 'Stop Recording';
+        micIcon.classList.add('hidden');
+        stopIcon.classList.remove('hidden');
+        recordStatus.classList.remove('hidden');
+
+        recordStartTime = Date.now();
+        recordTimer = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+            const min = Math.floor(elapsed / 60);
+            const sec = elapsed % 60;
+            document.getElementById('record-time').textContent = `${min}:${sec.toString().padStart(2, '0')}`;
+        }, 200);
+
+        setStatus('Recording...');
+    } catch (err) {
+        showError('Microphone access denied. Please allow microphone access and try again.');
+    }
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+}
+
+async function onRecordingComplete() {
+    clearInterval(recordTimer);
+
+    // Reset UI
+    const recordBtn = document.getElementById('record-btn');
+    const recordBtnText = document.getElementById('record-btn-text');
+    const recordStatus = document.getElementById('record-status');
+    const micIcon = recordBtn.querySelector('.mic-icon');
+    const stopIcon = recordBtn.querySelector('.stop-icon');
+
+    recordBtn.classList.remove('recording');
+    recordBtnText.textContent = 'Record Audio';
+    micIcon.classList.remove('hidden');
+    stopIcon.classList.add('hidden');
+    recordStatus.classList.add('hidden');
+
+    if (recordedChunks.length === 0) return;
+
+    const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+    setStatus('Uploading recorded audio...');
+
+    const formData = new FormData();
+    formData.append('audio', blob, 'recording.webm');
+
+    try {
+        const response = await fetch(`${API_BASE}/api/record?file_id=${state.uploadedFileId}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || 'Failed to generate video');
+        }
+
+        const data = await response.json();
+        state.currentVideoId = data.video_id;
+
+        el.loading.classList.add('hidden');
+        el.resultContainer.classList.remove('hidden');
+        el.resultVideo.src = `${API_BASE}${data.video_url}`;
+        document.getElementById('result-section').classList.add('active');
+        document.getElementById('result-section').classList.add('completed');
+        setStatus('Video generated from recording!');
+        loadHistory();
+    } catch (error) {
+        showError(error.message);
     }
 }
 

@@ -313,6 +313,58 @@ async def speak(
     }
 
 
+@app.post("/api/record")
+async def record_audio(
+    file_id: str = Query(...),
+    audio: UploadFile = File(...)
+):
+    """Generate lip-sync video from recorded audio + photo."""
+    from animator import animate_face
+
+    if file_id not in uploaded_photos:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    # Save recorded audio
+    audio_id = str(uuid.uuid4())
+    ext = audio.filename.rsplit(".", 1)[-1] if "." in audio.filename else "webm"
+    audio_path = str(UPLOAD_DIR / f"{audio_id}.{ext}")
+
+    with open(audio_path, "wb") as f:
+        shutil.copyfileobj(audio.file, f)
+
+    # Generate animation
+    photo_path = uploaded_photos[file_id]["path"]
+    try:
+        video_path = animate_face(photo_path, audio_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Animation failed: {str(e)}")
+
+    video_id = Path(video_path).stem
+    generated_videos[video_id] = {
+        "path": video_path,
+        "file_id": file_id,
+        "audio_path": audio_path,
+        "text": "[Recorded audio]",
+        "voice": None,
+        "created_at": time.time()
+    }
+
+    video_history.append({
+        "video_id": video_id,
+        "file_id": file_id,
+        "filename": uploaded_photos[file_id]["filename"],
+        "text": "[Recorded audio]",
+        "voice": None,
+        "created_at": time.time()
+    })
+
+    return {
+        "video_id": video_id,
+        "video_url": f"/api/video/{video_id}",
+        "message": "Lip-sync video generated from recorded audio"
+    }
+
+
 # ===== HISTORY ENDPOINTS =====
 
 @app.get("/api/history")
