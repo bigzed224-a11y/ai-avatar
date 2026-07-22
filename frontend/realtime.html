@@ -626,10 +626,6 @@
     }
 
     // Simple pose detection from webcam using face position
-    let prevFaceX = 0.5;
-    let prevFaceY = 0.5;
-    let smoothing = 0.3;
-
     function detectPose() {
         if (!cameraStream) return;
 
@@ -664,16 +660,10 @@
                 const faceX = sumX / count / 64;
                 const faceY = sumY / count / 48;
 
-                // Smooth
-                const smoothX = prevFaceX + (faceX - prevFaceX) * smoothing;
-                const smoothY = prevFaceY + (faceY - prevFaceY) * smoothing;
-                prevFaceX = smoothX;
-                prevFaceY = smoothY;
-
-                // Map to pose values
-                const turn = (smoothX - 0.5) * 2;  // -1 to 1
-                const nod = (smoothY - 0.5) * 2;    // -1 to 1
-                const tilt = turn * 0.3;             // slight tilt from turn
+                // Map to pose values (inverted for natural mirror)
+                const turn = (0.5 - faceX) * 2.5;
+                const nod = (faceY - 0.5) * 2;
+                const tilt = turn * 0.25;
 
                 // Update display
                 document.getElementById('val-tilt').textContent = tilt.toFixed(2);
@@ -684,17 +674,18 @@
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
                         landmarks: [
-                            { x: smoothX, y: smoothY, visibility: 1 },
-                            { x: smoothX - 0.15, y: smoothY + 0.2, visibility: 1 },
-                            { x: smoothX + 0.15, y: smoothY + 0.2, visibility: 1 }
+                            { x: faceX, y: faceY, visibility: 1 },
+                            { x: faceX - 0.15, y: faceY + 0.2, visibility: 1 },
+                            { x: faceX + 0.15, y: faceY + 0.2, visibility: 1 }
                         ]
                     }));
                 }
 
-                // Render avatar locally too (fallback)
+                // Render avatar with spring-based tracking
                 renderAvatar({
-                    head_rotation: { x: nod * 15, y: turn * 20, z: tilt * 10 },
-                    face: { mouth_open: 0, smile: 0, eyebrow_raise: 0 },
+                    head_rotation: { x: nod * 18, y: turn * 25, z: tilt * 8 },
+                    face: { mouth_open: 0 },
+                    phoneme: { open: 0, wide: 0.5, round: 0, jaw: 0, tension: 0 },
                     confidence: 1
                 });
             }
@@ -704,11 +695,203 @@
         loop();
     }
 
-    // Render avatar
-    let mouthOpenAmount = 0;
-    let targetMouthOpen = 0;
+    // ===== LIP SYNC ENGINE =====
+    // Spring physics for smooth animation
+    class Spring {
+        constructor(value = 0, stiffness = 0.15, damping = 0.7) {
+            this.target = value;
+            this.current = value;
+            this.velocity = 0;
+            this.stiffness = stiffness;
+            this.damping = damping;
+        }
+        update(dt) {
+            const force = (this.target - this.current) * this.stiffness;
+            this.velocity = (this.velocity + force) * this.damping;
+            this.current += this.velocity * dt;
+            return this.current;
+        }
+        set(val) { this.target = val; }
+        snap(val) { this.current = val; this.target = val; this.velocity = 0; }
+    }
+
+    // Animation state with springs
+    const anim = {
+        mouthOpen: new Spring(0, 0.2, 0.65),
+        mouthWidth: new Spring(0.5, 0.18, 0.7),
+        mouthRound: new Spring(0, 0.15, 0.7),
+        jawDrop: new Spring(0, 0.12, 0.75),
+        eyebrowL: new Spring(0, 0.1, 0.8),
+        eyebrowR: new Spring(0, 0.1, 0.8),
+        headX: new Spring(0, 0.08, 0.82),
+        headY: new Spring(0, 0.08, 0.82),
+        headZ: new Spring(0, 0.1, 0.8),
+        blinkTimer: 0,
+        blinkState: 0,
+        eyeOpenness: new Spring(1, 0.3, 0.6),
+    };
+
+    // Phoneme detection from frequency bands
+    function detectPhoneme(freqData) {
+        // Frequency bands (approximate):
+        // 0-3: Very low (bass/voicing) ~0-200Hz
+        // 4-9: Low (fundamental) ~200-500Hz
+        // 10-19: Mid (formants) ~500-1500Hz
+        // 20-35: High-mid (sibilants) ~1500-4000Hz
+        // 36-63: High (fricatives) ~4000-8000Hz
+
+        const bands = [0, 0, 0, 0, 0];
+        const bandRanges = [[0,4], [4,10], [10,20], [20,36], [36,64]];
+
+        for (let b = 0; b < 5; b++) {
+            let sum = 0;
+            for (let i = bandRanges[b][0]; i < bandRanges[b][1] && i < freqData.length; i++) {
+                sum += freqData[i];
+            }
+            bands[b] = sum / (bandRanges[b][1] - bandRanges[b][0]) / 255;
+        }
+
+        const [bass, fund, formant, sibilant, fricative] = bands;
+
+        // Detect phoneme type
+        const totalEnergy = bass + fund + formant + sibilant + fricative;
+        const isVoiced = bass > 0.15 && fund > 0.1;
+
+        let phoneme = {
+            open: 0,       // Mouth opening (vertical)
+            wide: 0.5,     // Mouth width (horizontal, 0=narrow, 1=wide)
+            round: 0,      // Lip rounding
+            jaw: 0,        // Jaw drop
+            tension: 0,    // Lip tension
+        };
+
+        if (totalEnergy < 0.05) {
+            // Silence - closed mouth
+            return phoneme;
+        }
+
+        if (isVoiced) {
+            if (formant > 0.3) {
+                // "AH" / "AA" - open mouth, medium width
+                phoneme.open = Math.min(1, formant * 2);
+                phoneme.wide = 0.6;
+                phoneme.jaw = formant * 0.8;
+            } else if (fund > 0.3 && formant < 0.2) {
+                // "OO" / "UH" - round lips
+                phoneme.open = Math.min(0.8, fund * 1.5);
+                phoneme.round = Math.min(1, fund * 2);
+                phoneme.wide = 0.3;
+                phoneme.jaw = fund * 0.5;
+            } else if (fund > 0.2 && sibilant < 0.15) {
+                // "EE" / "IH" - narrow, tense
+                phoneme.open = Math.min(0.6, fund * 1.2);
+                phoneme.wide = 0.8;
+                phoneme.tension = 0.7;
+                phoneme.jaw = fund * 0.3;
+            } else {
+                // Default voiced sound
+                phoneme.open = Math.min(0.7, totalEnergy * 1.5);
+                phoneme.wide = 0.55;
+                phoneme.jaw = totalEnergy * 0.4;
+            }
+        } else if (sibilant > 0.2 || fricative > 0.2) {
+            // "S" / "SH" / "F" - teeth together, slight tension
+            phoneme.open = 0.15;
+            phoneme.wide = 0.65;
+            phoneme.tension = Math.min(1, (sibilant + fricative) * 2);
+            phoneme.jaw = 0.1;
+        } else if (bass > 0.2 && totalEnergy < 0.15) {
+            // Plosive "P" / "B" - lips press together then release
+            phoneme.open = 0.05;
+            phoneme.tension = 0.8;
+        }
+
+        // Add slight natural variation
+        phoneme.open += (Math.random() - 0.5) * 0.02;
+        phoneme.wide += (Math.random() - 0.5) * 0.02;
+
+        return phoneme;
+    }
+
+    // Draw realistic mouth
+    function drawMouth(ctx, x, y, size, phoneme, openness) {
+        const w = size * 0.35 * phoneme.wide;
+        const h = size * 0.08 + size * 0.12 * phoneme.open;
+        const roundness = phoneme.round;
+
+        ctx.save();
+        ctx.translate(x, y);
+
+        // Shadow under lip
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.beginPath();
+        ctx.ellipse(0, h * 0.3, w * 1.1, h * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner mouth (dark)
+        if (phoneme.open > 0.1) {
+            ctx.fillStyle = '#1a0a0a';
+            ctx.beginPath();
+            if (roundness > 0.3) {
+                // Rounded mouth
+                const r = Math.min(w, h) * (0.5 + roundness * 0.5);
+                ctx.ellipse(0, 0, r * 0.8, r, 0, 0, Math.PI * 2);
+            } else {
+                // Normal open mouth
+                ctx.ellipse(0, 0, w, h, 0, 0, Math.PI * 2);
+            }
+            ctx.fill();
+
+            // Teeth (upper)
+            if (phoneme.open > 0.25) {
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.beginPath();
+                const teethH = h * 0.35;
+                const teethW = w * 0.7;
+                ctx.ellipse(0, -h * 0.15, teethW, teethH, 0, 0, Math.PI);
+                ctx.fill();
+            }
+
+            // Tongue hint
+            if (phoneme.open > 0.4) {
+                ctx.fillStyle = 'rgba(180,80,80,0.6)';
+                ctx.beginPath();
+                ctx.ellipse(0, h * 0.2, w * 0.5, h * 0.25, 0, 0, Math.PI);
+                ctx.fill();
+            }
+        }
+
+        // Lips
+        const lipThickness = size * 0.015 * (1 + phoneme.tension * 0.5);
+        ctx.strokeStyle = 'rgba(140,70,70,0.7)';
+        ctx.lineWidth = lipThickness;
+        ctx.lineCap = 'round';
+
+        // Upper lip
+        ctx.beginPath();
+        ctx.moveTo(-w, 0);
+        ctx.quadraticCurveTo(-w * 0.5, -h * 0.6 * (1 - roundness * 0.3), 0, -h * 0.2);
+        ctx.quadraticCurveTo(w * 0.5, -h * 0.6 * (1 - roundness * 0.3), w, 0);
+        ctx.stroke();
+
+        // Lower lip
+        ctx.beginPath();
+        ctx.moveTo(-w, 0);
+        ctx.quadraticCurveTo(-w * 0.3, h * 0.8, 0, h);
+        ctx.quadraticCurveTo(w * 0.3, h * 0.8, w, 0);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    // Render avatar with realistic lip sync
+    let lastTime = performance.now();
 
     function renderAvatar(params) {
+        const now = performance.now();
+        const dt = Math.min((now - lastTime) / 16.67, 3); // Normalize to ~60fps
+        lastTime = now;
+
         const w = avatarCanvas.width;
         const h = avatarCanvas.height;
         avatarCtx.clearRect(0, 0, w, h);
@@ -727,41 +910,87 @@
 
         const rot = params.head_rotation || { x: 0, y: 0, z: 0 };
         const face = params.face || {};
+        const phoneme = params.phoneme || { open: 0, wide: 0.5, round: 0, jaw: 0, tension: 0 };
 
-        // Smooth mouth animation
-        targetMouthOpen = face.mouth_open || 0;
-        mouthOpenAmount += (targetMouthOpen - mouthOpenAmount) * 0.3;
+        // Update springs
+        anim.mouthOpen.set(phoneme.open);
+        anim.mouthWidth.set(phoneme.wide);
+        anim.mouthRound.set(phoneme.round);
+        anim.jawDrop.set(phoneme.jaw);
+        anim.headX.set(rot.x * 0.7);
+        anim.headY.set(rot.y * 0.7);
+        anim.headZ.set(rot.z * 0.5);
+
+        // Natural idle micro-movements
+        const time = now * 0.001;
+        const idleX = Math.sin(time * 0.7) * 0.8;
+        const idleY = Math.sin(time * 0.5) * 0.5;
+        const idleZ = Math.sin(time * 0.3) * 0.3;
+
+        // Blink logic
+        anim.blinkTimer += dt * 0.016;
+        if (anim.blinkTimer > 3 + Math.random() * 4) {
+            anim.blinkState = 1;
+            anim.blinkTimer = 0;
+        }
+        if (anim.blinkState > 0) {
+            anim.blinkState += dt * 0.15;
+            if (anim.blinkState > 1) {
+                anim.eyeOpenness.set(0);
+            }
+            if (anim.eyeOpenness.current < 0.1) {
+                anim.eyeOpenness.set(1);
+            }
+            if (anim.blinkState > 2) {
+                anim.blinkState = 0;
+            }
+        }
+
+        // Get spring values
+        const mouthOpen = anim.mouthOpen.update(dt);
+        const mouthWidth = anim.mouthWidth.update(dt);
+        const mouthRound = anim.mouthRound.update(dt);
+        const jawDrop = anim.jawDrop.update(dt);
+        const headX = (anim.headX.update(dt) + idleX) * (1 + jawDrop * 0.1);
+        const headY = anim.headY.update(dt) + idleY;
+        const headZ = anim.headZ.update(dt) + idleZ;
+
+        // Subtle eyebrow from audio
+        const eyebrowHeight = Math.sin(time * 4) * 0.3 + (mouthOpen > 0.5 ? 0.3 : 0);
 
         avatarCtx.save();
         avatarCtx.translate(w/2, h/2);
 
-        // Apply head rotation
-        const rotX = (rot.x || 0) * Math.PI / 180;
-        const rotY = (rot.y || 0) * Math.PI / 180;
-        const rotZ = (rot.z || 0) * Math.PI / 180;
+        // Apply head rotation with perspective
+        const rotX = headX * Math.PI / 180;
+        const rotY = headY * Math.PI / 180;
+        const rotZ = headZ * Math.PI / 180;
 
-        // Simple perspective transform
-        const scale = 1 - Math.abs(rotX) * 0.001;
-        const offsetX = rotY * 2;
-        const offsetY = rotX * 1.5;
+        const perspScale = 1 - Math.abs(rotX) * 0.0008 - Math.abs(rotY) * 0.0005;
+        const offsetX = rotY * 2.5 + jawDrop * Math.sin(rotX) * 0.5;
+        const offsetY = rotX * 2 + jawDrop * 2;
 
-        avatarCtx.rotate(rotZ * 0.5);
+        avatarCtx.rotate(rotZ * 0.6);
         avatarCtx.translate(offsetX, offsetY);
-        avatarCtx.scale(scale, 1 - Math.abs(rotX) * 0.0005);
+        avatarCtx.scale(perspScale, 1 - Math.abs(rotX) * 0.0003 + jawDrop * 0.002);
 
         // Draw avatar image
-        const imgW = Math.min(w * 0.8, avatarImage.width);
+        const imgW = Math.min(w * 0.85, avatarImage.width);
         const imgH = imgW * (avatarImage.height / avatarImage.width);
         avatarCtx.drawImage(avatarImage, -imgW/2, -imgH/2, imgW, imgH);
 
-        // Mouth animation overlay (subtle glow around mouth area)
-        if (mouthOpenAmount > 0.05) {
-            const mouthY = imgH * 0.15;
-            avatarCtx.fillStyle = `rgba(99, 102, 241, ${mouthOpenAmount * 0.3})`;
-            avatarCtx.beginPath();
-            avatarCtx.ellipse(0, mouthY, imgW * 0.1 * (1 + mouthOpenAmount * 0.5), imgH * 0.02 * (1 + mouthOpenAmount * 3), 0, 0, Math.PI * 2);
-            avatarCtx.fill();
-        }
+        // Draw mouth overlay on face
+        // Position assumes face is roughly centered with mouth at ~60% from top
+        const mouthY = -imgH * 0.08 + jawDrop * 3;
+        const mouthSize = imgW * 0.4;
+
+        drawMouth(avatarCtx, 0, mouthY, mouthSize, {
+            open: mouthOpen,
+            wide: mouthWidth,
+            round: mouthRound,
+            jaw: jawDrop,
+            tension: phoneme.tension || 0
+        }, mouthOpen);
 
         avatarCtx.restore();
     }
@@ -794,29 +1023,42 @@
             source.connect(analyser);
             analyser.connect(audioContext.destination);
 
-            // Animate mouth while audio plays
+            // Animate mouth while audio plays with phoneme detection
             const bufferLength = analyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
 
             function animateMouth() {
                 analyser.getByteFrequencyData(dataArray);
 
-                // Get average volume for mouth
-                let sum = 0;
-                for (let i = 0; i < 10; i++) sum += dataArray[i];
-                const avg = sum / 10 / 255;
+                // Detect phoneme from frequency spectrum
+                const phoneme = detectPhoneme(dataArray);
 
-                // Update avatar with mouth movement
+                // Calculate overall energy for secondary effects
+                let energy = 0;
+                for (let i = 0; i < 20; i++) energy += dataArray[i];
+                energy = energy / 20 / 255;
+
+                // Subtle head bob with speech rhythm
+                const headBobX = Math.sin(performance.now() * 0.003) * energy * 3;
+                const headBobY = Math.sin(performance.now() * 0.002 + 1) * energy * 2;
+
+                // Update avatar with phoneme-driven animation
                 renderAvatar({
-                    head_rotation: { x: 0, y: 0, z: 0 },
-                    face: { mouth_open: avg, smile: avg * 0.5 },
+                    head_rotation: { x: headBobX, y: headBobY, z: headBobY * 0.3 },
+                    face: { mouth_open: phoneme.open },
+                    phoneme: phoneme,
                     confidence: 1
                 });
 
-                // Update meters
+                // Update meters with different frequency bands
+                const bands = [0, 0, 0, 0];
                 for (let i = 0; i < 4; i++) {
-                    const val = dataArray[i * 8] / 255 * 100;
-                    document.getElementById(`meter-${i+1}`).style.width = val + '%';
+                    let sum = 0;
+                    for (let j = i * 16; j < (i+1) * 16 && j < bufferLength; j++) {
+                        sum += dataArray[j];
+                    }
+                    bands[i] = sum / 16 / 255;
+                    document.getElementById(`meter-${i+1}`).style.width = (bands[i] * 100) + '%';
                 }
 
                 // Draw audio visualizer
@@ -829,7 +1071,13 @@
 
             audio.onplay = () => animateMouth();
             audio.onended = () => {
-                renderAvatar({ head_rotation: { x: 0, y: 0, z: 0 }, face: { mouth_open: 0 }, confidence: 1 });
+                anim.mouthOpen.snap(0);
+                anim.mouthWidth.snap(0.5);
+                anim.mouthRound.snap(0);
+                anim.jawDrop.snap(0);
+                anim.headX.snap(0);
+                anim.headY.snap(0);
+                anim.headZ.snap(0);
                 for (let i = 1; i <= 4; i++) document.getElementById(`meter-${i}`).style.width = '0%';
             };
 
@@ -883,7 +1131,7 @@
     // Draw initial avatar canvas
     avatarCanvas.width = 640;
     avatarCanvas.height = 480;
-    renderAvatar({ head_rotation: { x: 0, y: 0, z: 0 }, face: { mouth_open: 0 }, confidence: 1 });
+    renderAvatar({ head_rotation: { x: 0, y: 0, z: 0 }, face: { mouth_open: 0 }, phoneme: { open: 0, wide: 0.5, round: 0, jaw: 0, tension: 0 }, confidence: 1 });
     </script>
 </body>
 </html>

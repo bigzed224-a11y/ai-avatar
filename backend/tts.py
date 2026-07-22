@@ -56,7 +56,7 @@ DEFAULT_VOICE = "aria"
 
 async def text_to_speech_edge(text: str, voice: str = None) -> str:
     """
-    Convert text to speech using edge-tts (async version for FastAPI).
+    Convert text to speech using edge-tts with fallback to gTTS.
     
     Args:
         text: Text to convert
@@ -65,7 +65,8 @@ async def text_to_speech_edge(text: str, voice: str = None) -> str:
     Returns:
         Path to generated audio file
     """
-    import edge_tts
+    if not text or not text.strip():
+        raise ValueError("Text cannot be empty")
     
     # Resolve voice name
     if voice and voice in VOICE_OPTIONS:
@@ -78,44 +79,35 @@ async def text_to_speech_edge(text: str, voice: str = None) -> str:
     audio_id = str(uuid.uuid4())
     output_path = OUTPUT_DIR / f"{audio_id}.mp3"
     
-    communicate = edge_tts.Communicate(text, voice_name)
-    await communicate.save(str(output_path))
-    
-    return str(output_path)
-
-
-def text_to_speech_sync(text: str, voice: str = None) -> str:
-    """
-    Synchronous version for non-async contexts.
-    """
-    import edge_tts
-    
-    if voice and voice in VOICE_OPTIONS:
-        voice_name = VOICE_OPTIONS[voice]["voice"]
-    elif voice and "." in voice:
-        voice_name = voice
-    else:
-        voice_name = VOICE_OPTIONS[DEFAULT_VOICE]["voice"]
-    
-    audio_id = str(uuid.uuid4())
-    output_path = OUTPUT_DIR / f"{audio_id}.mp3"
-    
-    async def generate():
+    # Try edge-tts first
+    try:
+        import edge_tts
         communicate = edge_tts.Communicate(text, voice_name)
         await communicate.save(str(output_path))
+        print(f"[TTS] edge-tts succeeded for voice: {voice_name}")
+        return str(output_path)
+    except Exception as e:
+        print(f"[TTS] edge-tts failed: {e}, falling back to gTTS")
     
-    # Check if there's already a running event loop
+    # Fallback to gTTS (Google Text-to-Speech)
     try:
-        loop = asyncio.get_running_loop()
-        # We're in an async context - use nest_asyncio or create a task
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            pool.submit(asyncio.run, generate()).result()
-    except RuntimeError:
-        # No running loop, safe to use asyncio.run
-        asyncio.run(generate())
-    
-    return str(output_path)
+        from gtts import gTTS
+        
+        # Map voice to language accent
+        lang = 'en'
+        tld = 'com'
+        if voice_name.startswith('en-GB'):
+            tld = 'co.uk'
+        elif voice_name.startswith('en-AU'):
+            tld = 'com.au'
+        
+        tts = gTTS(text=text, lang=lang, tld=tld)
+        tts.save(str(output_path))
+        print(f"[TTS] gTTS fallback succeeded")
+        return str(output_path)
+    except Exception as e2:
+        print(f"[TTS] gTTS also failed: {e2}")
+        raise RuntimeError(f"All TTS engines failed. edge-tts: {e}, gTTS: {e2}")
 
 
 def get_available_voices():
@@ -129,5 +121,5 @@ if __name__ == "__main__":
         print(f"  {key}: {info['name']}")
     
     print("\nGenerating test audio...")
-    audio_path = text_to_speech_sync("Hello! This is a test.")
+    audio_path = asyncio.run(text_to_speech_edge("Hello! This is a test."))
     print(f"Audio saved to: {audio_path}")
