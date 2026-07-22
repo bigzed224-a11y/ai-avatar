@@ -3,257 +3,887 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Avatar - Real-Time Pose</title>
+    <title>LipSync AI - Live Mode</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.4.1646424915/pose.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
     <style>
-        .realtime-container {
+        .live-header {
+            text-align: center;
+            padding: 100px 24px 40px;
+            background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+        }
+        .live-header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+        .live-header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+        .live-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px 60px;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 24px;
         }
-        
-        .webcam-panel, .avatar-panel {
-            background: white;
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 24px;
+            transition: background-color 0.3s, border-color 0.3s;
         }
-        
         .panel-header {
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .panel-title {
+            display: flex;
+            align-items: center;
             gap: 10px;
-            margin-bottom: 16px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
         }
-        
-        .panel-header h2 {
-            font-size: 1rem;
-            color: var(--gray-700);
-        }
-        
         .live-badge {
             background: #ef4444;
             color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 4px 10px;
+            border-radius: 6px;
             font-size: 0.75rem;
-            font-weight: 600;
-            animation: blink 1s infinite;
+            font-weight: 700;
+            animation: pulse-badge 1.5s infinite;
         }
-        
-        @keyframes blink {
+        @keyframes pulse-badge {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            50% { opacity: 0.6; }
         }
-        
-        .video-container {
+        .video-box {
             position: relative;
-            background: #1a1a2e;
+            background: #0a0a1a;
             border-radius: 12px;
             overflow: hidden;
             aspect-ratio: 4/3;
         }
-        
-        #webcam-video {
+        .video-box video,
+        .video-box canvas {
             width: 100%;
             height: 100%;
             object-fit: cover;
+        }
+        #webcam-video {
             transform: scaleX(-1);
         }
-        
-        #avatar-canvas {
-            width: 100%;
-            height: 100%;
-        }
-        
-        .pose-overlay {
+        .video-overlay {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.7);
+            bottom: 12px;
+            left: 12px;
+            background: rgba(0,0,0,0.75);
             color: white;
-            padding: 8px 12px;
+            padding: 8px 14px;
             border-radius: 8px;
             font-size: 0.8rem;
-        }
-        
-        .pose-values {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-top: 16px;
-        }
-        
-        .pose-item {
-            background: var(--gray-50);
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-        }
-        
-        .pose-item label {
-            display: block;
-            font-size: 0.75rem;
-            color: var(--gray-500);
-            margin-bottom: 4px;
-        }
-        
-        .pose-item span {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--gray-700);
-        }
-        
-        .controls-row {
-            display: flex;
-            gap: 12px;
-            margin-top: 16px;
-        }
-        
-        .controls-row button {
-            flex: 1;
-        }
-        
-        .connection-status {
             display: flex;
             align-items: center;
-            gap: 6px;
-            font-size: 0.85rem;
-            color: var(--gray-500);
+            gap: 8px;
         }
-        
-        .connection-dot {
+        .status-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: var(--gray-300);
+            background: #ef4444;
         }
-        
-        .connection-dot.connected {
-            background: var(--success);
+        .status-dot.active {
+            background: #10b981;
+            animation: pulse-dot 1s infinite;
         }
-        
-        @media (max-width: 768px) {
-            .realtime-container {
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .pose-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .pose-stat {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+        .pose-stat label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .pose-stat span {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .controls .btn {
+            flex: 1;
+        }
+        .speech-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+        }
+        .speech-section h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+        .voice-select {
+            margin-bottom: 12px;
+        }
+        .voice-select label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .voice-select select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-family: var(--font-family);
+            cursor: pointer;
+        }
+        .voice-select select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        .speech-input-row {
+            display: flex;
+            gap: 10px;
+        }
+        .speech-input-row input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-family: var(--font-family);
+        }
+        .speech-input-row input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        .audio-visualizer {
+            margin-top: 16px;
+            height: 60px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        #audio-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .meters {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .meter {
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .meter-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transition: width 0.05s;
+            border-radius: 6px;
+        }
+        .feature-list {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .feature-item svg {
+            color: var(--success);
+            flex-shrink: 0;
+        }
+        @media (max-width: 900px) {
+            .live-container {
                 grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Real-Time Pose Detection</h1>
-            <p>Your movements drive the avatar in real-time!</p>
-        </header>
-
-        <div class="status-bar">
-            <div class="connection-status">
-                <span class="connection-dot" id="ws-status"></span>
-                <span id="ws-status-text">Disconnected</span>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="url(#logo-gradient)"/>
+                    <path d="M10 18C10 18 12 22 16 22C20 22 22 18 22 18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="12" cy="13" r="2" fill="white"/>
+                    <circle cx="20" cy="13" r="2" fill="white"/>
+                    <defs>
+                        <linearGradient id="logo-gradient" x1="0" y1="0" x2="32" y2="32">
+                            <stop stop-color="#6366f1"/>
+                            <stop offset="1" stop-color="#ec4899"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <span>LipSync AI</span>
+            </a>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="index.html#app">Lip-Sync Mode</a>
+                <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+                    <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
             </div>
-            <a href="index.html" class="text-btn">← Back to Lip-Sync</a>
         </div>
+    </nav>
 
-        <main>
-            <!-- Setup Section -->
-            <section class="step active" id="setup-section">
-                <div class="step-header">
-                    <span class="step-number">1</span>
-                    <h2>Upload Avatar Photo</h2>
-                </div>
-                <div class="upload-area" id="drop-zone">
-                    <div class="upload-icon">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <!-- Header -->
+    <div class="live-header">
+        <h1>Live Webcam Mode</h1>
+        <p>Your face drives the avatar in real-time. Speak and it lip-syncs live!</p>
+    </div>
+
+    <!-- Main Content -->
+    <div class="live-container">
+        <!-- Left: Webcam + Controls -->
+        <div>
+            <!-- Upload Avatar -->
+            <div class="panel" style="margin-bottom: 24px;">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                             <circle cx="8.5" cy="8.5" r="1.5"></circle>
                             <polyline points="21 15 16 10 5 21"></polyline>
                         </svg>
+                        Avatar Photo
                     </div>
-                    <p>Drop your character photo here</p>
-                    <input type="file" id="photo-input" accept="image/*" hidden>
+                    <span id="avatar-status" style="font-size: 0.85rem; color: var(--text-muted);">Not uploaded</span>
                 </div>
-                <div id="preview-container" class="hidden">
-                    <img id="photo-preview" alt="Avatar" style="max-width: 200px; border-radius: 8px;">
-                    <p id="photo-name"></p>
+                <div id="upload-area" style="border: 2px dashed var(--gray-300); border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; background: var(--bg-primary);">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    <p style="color: var(--text-secondary); margin-top: 12px;">Click or drag a photo here</p>
+                    <p style="color: var(--text-muted); font-size: 0.8rem;">JPG, PNG, WebP</p>
+                    <input type="file" id="avatar-input" accept="image/*" hidden>
                 </div>
-            </section>
+                <div id="avatar-preview" style="display: none; text-align: center; margin-top: 16px;">
+                    <img id="avatar-img" style="max-height: 120px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                </div>
+            </div>
 
-            <!-- Real-Time Section -->
-            <section class="step" id="realtime-section">
-                <div class="step-header">
-                    <span class="step-number">2</span>
-                    <h2>Real-Time Control</h2>
-                </div>
-                
-                <div class="realtime-container">
-                    <!-- Webcam Panel -->
-                    <div class="webcam-panel">
-                        <div class="panel-header">
-                            <h2>Your Camera</h2>
-                            <span class="live-badge">LIVE</span>
-                        </div>
-                        <div class="video-container">
-                            <video id="webcam-video" autoplay playsinline></video>
-                            <canvas id="pose-canvas" style="display: none;"></canvas>
-                            <div class="pose-overlay" id="pose-overlay">
-                                Pose: Waiting...
-                            </div>
-                        </div>
-                        
-                        <div class="pose-values">
-                            <div class="pose-item">
-                                <label>Tilt</label>
-                                <span id="val-tilt">0.00</span>
-                            </div>
-                            <div class="pose-item">
-                                <label>Nod</label>
-                                <span id="val-nod">0.00</span>
-                            </div>
-                            <div class="pose-item">
-                                <label>Turn</label>
-                                <span id="val-turn">0.00</span>
-                            </div>
-                        </div>
+            <!-- Webcam -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 7l-7 5 7 5V7z"></path>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                        </svg>
+                        Your Camera
                     </div>
-                    
-                    <div class="avatar-panel">
-                        <div class="panel-header">
-                            <h2>Avatar</h2>
-                            <span class="live-badge">LIVE</span>
-                        </div>
-                        
-                        <div class="video-container">
-                            <canvas id="avatar-canvas"></canvas>
-                        </div>
-                        
-                        <div class="controls-row">
-                            <button id="start-btn" class="primary-btn">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                                </svg>
-                                Start Camera
-                            </button>
-                            <button id="stop-btn" class="secondary-btn" disabled>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="6" y="6" width="12" height="12"></rect>
-                                </svg>
-                                Stop
-                            </button>
-                        </div>
+                    <span class="live-badge" id="cam-badge" style="display: none;">LIVE</span>
+                </div>
+                <div class="video-box">
+                    <video id="webcam-video" autoplay playsinline muted></video>
+                    <div class="video-overlay">
+                        <span class="status-dot" id="cam-dot"></span>
+                        <span id="cam-status">Camera off</span>
                     </div>
                 </div>
-            </section>
-        </main>
 
-        <footer>
-            <p>AI Avatar Lip-Sync | Real-Time Pose Detection</p>
-        </footer>
+                <!-- Pose Values -->
+                <div class="pose-grid">
+                    <div class="pose-stat">
+                        <label>Tilt</label>
+                        <span id="val-tilt">0.00</span>
+                    </div>
+                    <div class="pose-stat">
+                        <label>Nod</label>
+                        <span id="val-nod">0.00</span>
+                    </div>
+                    <div class="pose-stat">
+                        <label>Turn</label>
+                        <span id="val-turn">0.00</span>
+                    </div>
+                </div>
+
+                <!-- Camera Controls -->
+                <div class="controls">
+                    <button id="start-cam" class="btn btn-primary">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        Start Camera
+                    </button>
+                    <button id="stop-cam" class="btn btn-secondary" disabled>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="6" y="6" width="12" height="12"></rect>
+                        </svg>
+                        Stop
+                    </button>
+                </div>
+
+                <!-- Live Speech -->
+                <div class="speech-section">
+                    <h3>Live Speech</h3>
+                    <div class="voice-select">
+                        <label>Voice</label>
+                        <select id="voice-select">
+                            <option value="aria">Aria (Female, US)</option>
+                            <option value="guy">Guy (Male, US)</option>
+                            <option value="davis">Davis (Male, US)</option>
+                            <option value="jenny">Jenny (Female, US)</option>
+                            <option value="tony">Tony (Male, US)</option>
+                            <option value="nancy">Nancy (Female, US)</option>
+                            <option value="andy">Andy (Male, UK)</option>
+                            <option value="sonia">Sonia (Female, UK)</option>
+                        </select>
+                    </div>
+                    <div class="speech-input-row">
+                        <input type="text" id="speech-text" placeholder="Type text to speak live..." maxlength="200">
+                        <button id="speak-btn" class="btn btn-primary">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                <line x1="12" y1="19" x2="12" y2="22"></line>
+                            </svg>
+                            Speak
+                        </button>
+                    </div>
+                    <div class="audio-visualizer">
+                        <canvas id="audio-canvas"></canvas>
+                    </div>
+                    <div class="meters">
+                        <div class="meter"><div class="meter-fill" id="meter-1"></div></div>
+                        <div class="meter"><div class="meter-fill" id="meter-2"></div></div>
+                        <div class="meter"><div class="meter-fill" id="meter-3"></div></div>
+                        <div class="meter"><div class="meter-fill" id="meter-4"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Avatar Output -->
+        <div>
+            <div class="panel" style="height: 100%;">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                            <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                            <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                        </svg>
+                        Avatar Output
+                    </div>
+                    <span class="live-badge" id="avatar-badge" style="display: none;">LIVE</span>
+                </div>
+                <div class="video-box" style="min-height: 400px;">
+                    <canvas id="avatar-canvas"></canvas>
+                    <div class="video-overlay">
+                        <span class="status-dot" id="avatar-dot"></span>
+                        <span id="avatar-status-text">Waiting for camera...</span>
+                    </div>
+                </div>
+
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Real-time head tracking mirrors your movements
+                    </div>
+                    <div class="feature-item">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Live lip-sync when you type and speak
+                    </div>
+                    <div class="feature-item">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Smooth motion with natural animations
+                    </div>
+                    <div class="feature-item">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        8 different voice options
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script src="app.js"></script>
-    <script src="realtime.js"></script>
+    <!-- Toast -->
+    <div id="error-toast" class="toast hidden">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span class="toast-message" id="error-message"></span>
+        <button class="toast-close" onclick="document.getElementById('error-toast').classList.add('hidden')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+    const API_BASE = 'https://ai-avatar-staging.up.railway.app';
+
+    // State
+    let uploadedFileId = null;
+    let cameraStream = null;
+    let ws = null;
+    let animationFrame = null;
+    let audioContext = null;
+    let analyser = null;
+
+    // DOM
+    const uploadArea = document.getElementById('upload-area');
+    const avatarInput = document.getElementById('avatar-input');
+    const avatarPreview = document.getElementById('avatar-preview');
+    const avatarImg = document.getElementById('avatar-img');
+    const avatarStatus = document.getElementById('avatar-status');
+    const startCamBtn = document.getElementById('start-cam');
+    const stopCamBtn = document.getElementById('stop-cam');
+    const webcamVideo = document.getElementById('webcam-video');
+    const camBadge = document.getElementById('cam-badge');
+    const camDot = document.getElementById('cam-dot');
+    const camStatus = document.getElementById('cam-status');
+    const avatarCanvas = document.getElementById('avatar-canvas');
+    const avatarBadge = document.getElementById('avatar-badge');
+    const avatarDot = document.getElementById('avatar-dot');
+    const avatarStatusText = document.getElementById('avatar-status-text');
+    const speechText = document.getElementById('speech-text');
+    const speakBtn = document.getElementById('speak-btn');
+    const voiceSelect = document.getElementById('voice-select');
+    const audioCanvas = document.getElementById('audio-canvas');
+    const avatarCtx = avatarCanvas.getContext('2d');
+    const audioCtx2d = audioCanvas.getContext('2d');
+
+    // Avatar image
+    let avatarImage = null;
+
+    // Upload
+    uploadArea.addEventListener('click', () => avatarInput.click());
+    uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.style.borderColor = 'var(--primary)'; });
+    uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = 'var(--gray-300)'; });
+    uploadArea.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadArea.style.borderColor = 'var(--gray-300)';
+        if (e.dataTransfer.files[0]) uploadAvatar(e.dataTransfer.files[0]);
+    });
+    avatarInput.addEventListener('change', e => { if (e.target.files[0]) uploadAvatar(e.target.files[0]); });
+
+    async function uploadAvatar(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const res = await fetch(`${API_BASE}/api/upload`, { method: 'POST', body: formData });
+            const data = await res.json();
+            uploadedFileId = data.file_id;
+            avatarImage = new Image();
+            avatarImage.src = URL.createObjectURL(file);
+            avatarImg.src = avatarImage.src;
+            avatarPreview.style.display = 'block';
+            uploadArea.style.display = 'none';
+            avatarStatus.textContent = file.name;
+            avatarStatus.style.color = 'var(--success)';
+        } catch (e) {
+            showError('Upload failed: ' + e.message);
+        }
+    }
+
+    // Camera
+    startCamBtn.addEventListener('click', startCamera);
+    stopCamBtn.addEventListener('click', stopCamera);
+
+    async function startCamera() {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+            webcamVideo.srcObject = cameraStream;
+            startCamBtn.disabled = true;
+            stopCamBtn.disabled = false;
+            camBadge.style.display = 'inline';
+            camDot.classList.add('active');
+            camStatus.textContent = 'Camera active';
+            avatarBadge.style.display = 'inline';
+            avatarDot.classList.add('active');
+            avatarStatusText.textContent = 'Tracking...';
+
+            // Set canvas size
+            avatarCanvas.width = 640;
+            avatarCanvas.height = 480;
+
+            // Start WebSocket for pose
+            connectWebSocket();
+
+            // Start pose detection loop
+            detectPose();
+        } catch (e) {
+            showError('Camera access denied: ' + e.message);
+        }
+    }
+
+    function stopCamera() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(t => t.stop());
+            cameraStream = null;
+        }
+        if (ws) { ws.close(); ws = null; }
+        if (animationFrame) { cancelAnimationFrame(animationFrame); animationFrame = null; }
+        webcamVideo.srcObject = null;
+        startCamBtn.disabled = false;
+        stopCamBtn.disabled = true;
+        camBadge.style.display = 'none';
+        camDot.classList.remove('active');
+        camStatus.textContent = 'Camera off';
+        avatarBadge.style.display = 'none';
+        avatarDot.classList.remove('active');
+        avatarStatusText.textContent = 'Waiting for camera...';
+        avatarCtx.clearRect(0, 0, avatarCanvas.width, avatarCanvas.height);
+    }
+
+    // WebSocket
+    function connectWebSocket() {
+        const wsUrl = API_BASE.replace('https://', 'wss://').replace('http://', 'ws://');
+        ws = new WebSocket(`${wsUrl}/ws/pose`);
+        ws.onopen = () => console.log('WebSocket connected');
+        ws.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'animation') {
+                renderAvatar(msg.params);
+            }
+        };
+        ws.onerror = (e) => console.error('WebSocket error:', e);
+        ws.onclose = () => console.log('WebSocket closed');
+    }
+
+    // Simple pose detection from webcam using face position
+    let prevFaceX = 0.5;
+    let prevFaceY = 0.5;
+    let smoothing = 0.3;
+
+    function detectPose() {
+        if (!cameraStream) return;
+
+        // Create temp canvas to analyze webcam
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 64;
+        tempCanvas.height = 48;
+        const tempCtx = tempCanvas.getContext('2d');
+
+        function loop() {
+            if (!cameraStream) return;
+
+            tempCtx.drawImage(webcamVideo, 0, 0, 64, 48);
+            const data = tempCtx.getImageData(0, 0, 64, 48).data;
+
+            // Simple brightness-based face detection
+            let sumX = 0, sumY = 0, count = 0;
+            for (let y = 10; y < 40; y++) {
+                for (let x = 15; x < 50; x++) {
+                    const i = (y * 64 + x) * 4;
+                    const r = data[i], g = data[i+1], b = data[i+2];
+                    // Skin color detection
+                    if (r > 150 && g > 100 && b > 80 && r > g && r > b) {
+                        sumX += x;
+                        sumY += y;
+                        count++;
+                    }
+                }
+            }
+
+            if (count > 50) {
+                const faceX = sumX / count / 64;
+                const faceY = sumY / count / 48;
+
+                // Smooth
+                const smoothX = prevFaceX + (faceX - prevFaceX) * smoothing;
+                const smoothY = prevFaceY + (faceY - prevFaceY) * smoothing;
+                prevFaceX = smoothX;
+                prevFaceY = smoothY;
+
+                // Map to pose values
+                const turn = (smoothX - 0.5) * 2;  // -1 to 1
+                const nod = (smoothY - 0.5) * 2;    // -1 to 1
+                const tilt = turn * 0.3;             // slight tilt from turn
+
+                // Update display
+                document.getElementById('val-tilt').textContent = tilt.toFixed(2);
+                document.getElementById('val-nod').textContent = nod.toFixed(2);
+                document.getElementById('val-turn').textContent = turn.toFixed(2);
+
+                // Send to server
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        landmarks: [
+                            { x: smoothX, y: smoothY, visibility: 1 },
+                            { x: smoothX - 0.15, y: smoothY + 0.2, visibility: 1 },
+                            { x: smoothX + 0.15, y: smoothY + 0.2, visibility: 1 }
+                        ]
+                    }));
+                }
+
+                // Render avatar locally too (fallback)
+                renderAvatar({
+                    head_rotation: { x: nod * 15, y: turn * 20, z: tilt * 10 },
+                    face: { mouth_open: 0, smile: 0, eyebrow_raise: 0 },
+                    confidence: 1
+                });
+            }
+
+            animationFrame = requestAnimationFrame(loop);
+        }
+        loop();
+    }
+
+    // Render avatar
+    let mouthOpenAmount = 0;
+    let targetMouthOpen = 0;
+
+    function renderAvatar(params) {
+        const w = avatarCanvas.width;
+        const h = avatarCanvas.height;
+        avatarCtx.clearRect(0, 0, w, h);
+
+        // Background
+        avatarCtx.fillStyle = '#1a1a2e';
+        avatarCtx.fillRect(0, 0, w, h);
+
+        if (!avatarImage || !avatarImage.complete) {
+            avatarCtx.fillStyle = '#666';
+            avatarCtx.font = '18px Inter, sans-serif';
+            avatarCtx.textAlign = 'center';
+            avatarCtx.fillText('Upload a photo to begin', w/2, h/2);
+            return;
+        }
+
+        const rot = params.head_rotation || { x: 0, y: 0, z: 0 };
+        const face = params.face || {};
+
+        // Smooth mouth animation
+        targetMouthOpen = face.mouth_open || 0;
+        mouthOpenAmount += (targetMouthOpen - mouthOpenAmount) * 0.3;
+
+        avatarCtx.save();
+        avatarCtx.translate(w/2, h/2);
+
+        // Apply head rotation
+        const rotX = (rot.x || 0) * Math.PI / 180;
+        const rotY = (rot.y || 0) * Math.PI / 180;
+        const rotZ = (rot.z || 0) * Math.PI / 180;
+
+        // Simple perspective transform
+        const scale = 1 - Math.abs(rotX) * 0.001;
+        const offsetX = rotY * 2;
+        const offsetY = rotX * 1.5;
+
+        avatarCtx.rotate(rotZ * 0.5);
+        avatarCtx.translate(offsetX, offsetY);
+        avatarCtx.scale(scale, 1 - Math.abs(rotX) * 0.0005);
+
+        // Draw avatar image
+        const imgW = Math.min(w * 0.8, avatarImage.width);
+        const imgH = imgW * (avatarImage.height / avatarImage.width);
+        avatarCtx.drawImage(avatarImage, -imgW/2, -imgH/2, imgW, imgH);
+
+        // Mouth animation overlay (subtle glow around mouth area)
+        if (mouthOpenAmount > 0.05) {
+            const mouthY = imgH * 0.15;
+            avatarCtx.fillStyle = `rgba(99, 102, 241, ${mouthOpenAmount * 0.3})`;
+            avatarCtx.beginPath();
+            avatarCtx.ellipse(0, mouthY, imgW * 0.1 * (1 + mouthOpenAmount * 0.5), imgH * 0.02 * (1 + mouthOpenAmount * 3), 0, 0, Math.PI * 2);
+            avatarCtx.fill();
+        }
+
+        avatarCtx.restore();
+    }
+
+    // Live speech
+    speakBtn.addEventListener('click', async () => {
+        const text = speechText.value.trim();
+        if (!text) return;
+
+        speakBtn.disabled = true;
+        speakBtn.innerHTML = '<span>Speaking...</span>';
+
+        try {
+            // Get TTS audio
+            const res = await fetch(`${API_BASE}/api/live/speak?text=${encodeURIComponent(text)}&voice=${voiceSelect.value}`, { method: 'POST' });
+            const data = await res.json();
+
+            // Play audio
+            const audio = new Audio(`${API_BASE}${data.audio_url}`);
+            audio.crossOrigin = 'anonymous';
+
+            // Setup audio visualizer
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+            }
+
+            const source = audioContext.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+
+            // Animate mouth while audio plays
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            function animateMouth() {
+                analyser.getByteFrequencyData(dataArray);
+
+                // Get average volume for mouth
+                let sum = 0;
+                for (let i = 0; i < 10; i++) sum += dataArray[i];
+                const avg = sum / 10 / 255;
+
+                // Update avatar with mouth movement
+                renderAvatar({
+                    head_rotation: { x: 0, y: 0, z: 0 },
+                    face: { mouth_open: avg, smile: avg * 0.5 },
+                    confidence: 1
+                });
+
+                // Update meters
+                for (let i = 0; i < 4; i++) {
+                    const val = dataArray[i * 8] / 255 * 100;
+                    document.getElementById(`meter-${i+1}`).style.width = val + '%';
+                }
+
+                // Draw audio visualizer
+                drawAudioVisualizer(dataArray);
+
+                if (!audio.paused && !audio.ended) {
+                    requestAnimationFrame(animateMouth);
+                }
+            }
+
+            audio.onplay = () => animateMouth();
+            audio.onended = () => {
+                renderAvatar({ head_rotation: { x: 0, y: 0, z: 0 }, face: { mouth_open: 0 }, confidence: 1 });
+                for (let i = 1; i <= 4; i++) document.getElementById(`meter-${i}`).style.width = '0%';
+            };
+
+            await audio.play();
+        } catch (e) {
+            showError('Speech failed: ' + e.message);
+        } finally {
+            speakBtn.disabled = false;
+            speakBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg> Speak`;
+        }
+    });
+
+    speechText.addEventListener('keydown', e => { if (e.key === 'Enter') speakBtn.click(); });
+
+    function drawAudioVisualizer(dataArray) {
+        const w = audioCanvas.width = audioCanvas.parentElement.clientWidth;
+        const h = audioCanvas.height = 60;
+        audioCtx2d.clearRect(0, 0, w, h);
+
+        const barWidth = w / dataArray.length * 2.5;
+        let x = 0;
+
+        for (let i = 0; i < dataArray.length; i++) {
+            const barHeight = (dataArray[i] / 255) * h;
+            const gradient = audioCtx2d.createLinearGradient(0, h - barHeight, 0, h);
+            gradient.addColorStop(0, '#6366f1');
+            gradient.addColorStop(1, '#ec4899');
+            audioCtx2d.fillStyle = gradient;
+            audioCtx2d.fillRect(x, h - barHeight, barWidth - 1, barHeight);
+            x += barWidth;
+            if (x > w) break;
+        }
+    }
+
+    function showError(msg) {
+        document.getElementById('error-message').textContent = msg;
+        document.getElementById('error-toast').classList.remove('hidden');
+        setTimeout(() => document.getElementById('error-toast').classList.add('hidden'), 5000);
+    }
+
+    // Theme toggle
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+    });
+
+    // Draw initial avatar canvas
+    avatarCanvas.width = 640;
+    avatarCanvas.height = 480;
+    renderAvatar({ head_rotation: { x: 0, y: 0, z: 0 }, face: { mouth_open: 0 }, confidence: 1 });
+    </script>
 </body>
 </html>

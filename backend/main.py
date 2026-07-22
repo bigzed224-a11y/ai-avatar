@@ -152,7 +152,7 @@ async def text_to_speech(
         raise HTTPException(status_code=400, detail="Text too long (max 5000 characters)")
     
     try:
-        audio_path = text_to_speech_edge(text, voice=voice)
+        audio_path = await text_to_speech_edge(text, voice=voice)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
     
@@ -265,9 +265,9 @@ async def speak(
     job_id = str(uuid.uuid4())
     processing_jobs[job_id] = {"status": "tts", "started_at": time.time()}
     
-    # Generate TTS
+    # Generate TTS (async)
     try:
-        audio_path = text_to_speech_edge(text, voice=voice)
+        audio_path = await text_to_speech_edge(text, voice=voice)
     except Exception as e:
         processing_jobs[job_id]["status"] = "failed"
         raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
@@ -406,6 +406,51 @@ async def websocket_pose(websocket: WebSocket):
         print(f"WebSocket error: {e}")
         if websocket in active_connections:
             active_connections.remove(websocket)
+
+
+# ===== LIVE MODE ENDPOINTS =====
+
+@app.get("/api/live/config")
+async def get_live_config():
+    """Get configuration for live webcam mode."""
+    return {
+        "available_voices": get_available_voices(),
+        "ws_url": "/ws/pose",
+        "features": {
+            "face_tracking": True,
+            "lip_sync": True,
+            "real_time": True
+        }
+    }
+
+
+@app.post("/api/live/speak")
+async def live_speak(
+    text: str = Query(...),
+    voice: str = Query(None)
+):
+    """Generate TTS audio for live mode (returns audio for real-time playback)."""
+    from tts import text_to_speech_edge
+    
+    if not text or not text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    
+    try:
+        audio_path = await text_to_speech_edge(text, voice=voice)
+        audio_id = Path(audio_path).stem
+        generated_audio[audio_id] = {
+            "path": audio_path,
+            "text": text,
+            "voice": voice,
+            "created_at": time.time()
+        }
+        return {
+            "audio_id": audio_id,
+            "audio_url": f"/api/audio/{audio_id}",
+            "message": "Audio ready for live playback"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
 
 
 if __name__ == "__main__":
