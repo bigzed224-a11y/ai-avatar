@@ -79,6 +79,9 @@ async def text_to_speech_edge(text: str, voice: str = None) -> str:
     audio_id = str(uuid.uuid4())
     output_path = OUTPUT_DIR / f"{audio_id}.mp3"
     
+    edge_error = None
+    gtts_error = None
+    
     # Try edge-tts first
     try:
         import edge_tts
@@ -87,7 +90,8 @@ async def text_to_speech_edge(text: str, voice: str = None) -> str:
         print(f"[TTS] edge-tts succeeded for voice: {voice_name}")
         return str(output_path)
     except Exception as e:
-        print(f"[TTS] edge-tts failed: {e}, falling back to gTTS")
+        edge_error = str(e)
+        print(f"[TTS] edge-tts failed: {edge_error}, falling back to gTTS")
     
     # Fallback to gTTS (Google Text-to-Speech)
     try:
@@ -105,9 +109,11 @@ async def text_to_speech_edge(text: str, voice: str = None) -> str:
         tts.save(str(output_path))
         print(f"[TTS] gTTS fallback succeeded")
         return str(output_path)
-    except Exception as e2:
-        print(f"[TTS] gTTS also failed: {e2}")
-        raise RuntimeError(f"All TTS engines failed. edge-tts: {e}, gTTS: {e2}")
+    except Exception as e:
+        gtts_error = str(e)
+        print(f"[TTS] gTTS also failed: {gtts_error}")
+    
+    raise RuntimeError(f"All TTS engines failed. edge-tts: {edge_error}, gTTS: {gtts_error}")
 
 
 def get_available_voices():

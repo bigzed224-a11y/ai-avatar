@@ -8,417 +8,119 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
     <style>
-        .live-header {
-            text-align: center;
-            padding: 100px 24px 40px;
-            background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-        }
-        .live-header h1 {
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin-bottom: 12px;
-            color: var(--text-primary);
-        }
-        .live-header p {
-            color: var(--text-muted);
-            font-size: 1.1rem;
-        }
-        .live-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 24px 60px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-        }
+        .live-header { text-align: center; padding: 90px 24px 30px; background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%); }
+        .live-header h1 { font-size: 2.2rem; font-weight: 800; margin-bottom: 10px; color: var(--text-primary); }
+        .live-header p { color: var(--text-muted); font-size: 1rem; }
+        .live-container { max-width: 1400px; margin: 0 auto; padding: 0 20px 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; }
+        .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .panel-title { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+        .live-badge { background: #ef4444; color: white; padding: 3px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; animation: pulse-badge 1.5s infinite; }
+        @keyframes pulse-badge { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .video-box { position: relative; background: #0a0a1a; border-radius: 12px; overflow: hidden; aspect-ratio: 4/3; }
+        .video-box video, .video-box canvas { width: 100%; height: 100%; object-fit: cover; }
+        #webcam-video { transform: scaleX(-1); }
+        .video-overlay { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.75); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+        .status-dot.active { background: #10b981; animation: pulse-dot 1s infinite; }
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .landmark-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 12px; }
+        .landmark-stat { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px; text-align: center; }
+        .landmark-stat label { display: block; font-size: 0.65rem; color: var(--text-muted); margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .landmark-stat span { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); }
+        .controls { display: flex; gap: 10px; margin-top: 16px; }
+        .controls .btn { flex: 1; }
+        .mode-tabs { display: flex; gap: 6px; margin-bottom: 16px; background: var(--bg-secondary); padding: 4px; border-radius: 10px; }
+        .mode-tab { flex: 1; padding: 10px; border: none; border-radius: 8px; background: transparent; color: var(--text-muted); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: var(--font-family); }
+        .mode-tab.active { background: var(--bg-card); color: var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .mode-tab:hover:not(.active) { color: var(--text-secondary); }
+        .speech-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); }
+        .speech-section h3 { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+        .voice-select { margin-bottom: 10px; }
+        .voice-select label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+        .voice-select select { width: 100%; padding: 10px 12px; border: 2px solid var(--border-color); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); font-size: 0.9rem; font-family: var(--font-family); }
+        .voice-select select:focus { outline: none; border-color: var(--primary); }
+        .speech-input-row { display: flex; gap: 8px; }
+        .speech-input-row input { flex: 1; padding: 10px 14px; border: 2px solid var(--border-color); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); font-size: 0.9rem; font-family: var(--font-family); }
+        .speech-input-row input:focus { outline: none; border-color: var(--primary); }
+        .audio-visualizer { margin-top: 12px; height: 50px; background: var(--bg-secondary); border-radius: 8px; overflow: hidden; }
+        #audio-canvas { width: 100%; height: 100%; }
+        .meters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+        .meter { background: var(--bg-secondary); border-radius: 4px; height: 6px; overflow: hidden; }
+        .meter-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--secondary)); transition: width 0.05s; border-radius: 4px; }
+        .bg-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); }
+        .bg-section h3 { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; }
+        .bg-options { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+        .bg-option { width: 100%; aspect-ratio: 1; border-radius: 8px; border: 2px solid transparent; cursor: pointer; transition: all 0.2s; }
+        .bg-option:hover { border-color: var(--gray-400); }
+        .bg-option.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99,102,241,0.3); }
+        .bg-option.upload-btn { display: flex; align-items: center; justify-content: center; background: var(--bg-secondary); border-style: dashed; border-color: var(--gray-300); }
+        .feature-list { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); }
+        .feature-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; color: var(--text-secondary); font-size: 0.85rem; }
+        .feature-item svg { color: var(--success); flex-shrink: 0; }
         @media (max-width: 900px) {
-            .live-container {
-                grid-template-columns: 1fr;
-                padding: 0 16px 40px;
-            }
-            .live-header {
-                padding: 90px 16px 30px;
-            }
-            .live-header h1 {
-                font-size: 1.8rem;
-            }
-            .live-header p {
-                font-size: 0.95rem;
-            }
-            .panel {
-                padding: 16px;
-            }
-            .video-box {
-                aspect-ratio: 4/3;
-            }
-            .pose-grid {
-                grid-template-columns: repeat(3, 1fr);
-                gap: 8px;
-            }
-            .pose-stat {
-                padding: 10px 6px;
-            }
-            .pose-stat label {
-                font-size: 0.7rem;
-            }
-            .pose-stat span {
-                font-size: 1rem;
-            }
-            .speech-input-row {
-                flex-direction: column;
-            }
-            .speech-input-row .btn {
-                width: 100%;
-            }
-            .meters {
-                grid-template-columns: repeat(4, 1fr);
-                gap: 6px;
-            }
-            .nav-links {
-                display: none;
-                position: absolute;
-                top: 72px;
-                right: 16px;
-                background: var(--bg-card);
-                border: 1px solid var(--border-color);
-                padding: 20px;
-                border-radius: 12px;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-                flex-direction: column;
-                gap: 16px;
-                z-index: 1001;
-            }
-            .nav-links.show {
-                display: flex;
-            }
-            .mobile-menu-btn {
-                display: block;
-                background: none;
-                border: none;
-                cursor: pointer;
-                color: var(--gray-700);
-                padding: 8px;
-            }
-        }
-        @media (max-width: 480px) {
-            .live-header h1 {
-                font-size: 1.5rem;
-            }
-            .panel-title {
-                font-size: 1rem;
-            }
-            .controls {
-                flex-direction: column;
-            }
-            .controls .btn {
-                width: 100%;
-            }
-        }
-        .panel {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 24px;
-            transition: background-color 0.3s, border-color 0.3s;
-        }
-        .panel-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-        .panel-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        .live-badge {
-            background: #ef4444;
-            color: white;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            animation: pulse-badge 1.5s infinite;
-        }
-        @keyframes pulse-badge {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-        .video-box {
-            position: relative;
-            background: #0a0a1a;
-            border-radius: 12px;
-            overflow: hidden;
-            aspect-ratio: 4/3;
-        }
-        .video-box video,
-        .video-box canvas {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        #webcam-video {
-            transform: scaleX(-1);
-        }
-        .video-overlay {
-            position: absolute;
-            bottom: 12px;
-            left: 12px;
-            background: rgba(0,0,0,0.75);
-            color: white;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ef4444;
-        }
-        .status-dot.active {
-            background: #10b981;
-            animation: pulse-dot 1s infinite;
-        }
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-        .pose-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 16px;
-        }
-        .pose-stat {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 12px;
-            text-align: center;
-        }
-        .pose-stat label {
-            display: block;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-bottom: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .pose-stat span {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        .controls {
-            display: flex;
-            gap: 12px;
-            margin-top: 20px;
-        }
-        .controls .btn {
-            flex: 1;
-        }
-        .speech-section {
-            margin-top: 24px;
-            padding-top: 24px;
-            border-top: 1px solid var(--border-color);
-        }
-        .speech-section h3 {
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 16px;
-        }
-        .voice-select {
-            margin-bottom: 12px;
-        }
-        .voice-select label {
-            display: block;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-        }
-        .voice-select select {
-            width: 100%;
-            padding: 10px 14px;
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            font-size: 0.95rem;
-            font-family: var(--font-family);
-            cursor: pointer;
-        }
-        .voice-select select:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-        .speech-input-row {
-            display: flex;
-            gap: 10px;
-        }
-        .speech-input-row input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 2px solid var(--border-color);
-            border-radius: 10px;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            font-size: 0.95rem;
-            font-family: var(--font-family);
-        }
-        .speech-input-row input:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-        .audio-visualizer {
-            margin-top: 16px;
-            height: 60px;
-            background: var(--bg-secondary);
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-        }
-        #audio-canvas {
-            width: 100%;
-            height: 100%;
-        }
-        .meters {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-top: 12px;
-        }
-        .meter {
-            background: var(--bg-secondary);
-            border-radius: 6px;
-            height: 8px;
-            overflow: hidden;
-        }
-        .meter-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            transition: width 0.05s;
-            border-radius: 6px;
-        }
-        .feature-list {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid var(--border-color);
-        }
-        .feature-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 0;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-        .feature-item svg {
-            color: var(--success);
-            flex-shrink: 0;
-        }
-        @media (max-width: 900px) {
-            .live-container {
-                grid-template-columns: 1fr;
-            }
+            .live-container { grid-template-columns: 1fr; padding: 0 12px 40px; }
+            .live-header { padding: 80px 16px 20px; }
+            .live-header h1 { font-size: 1.6rem; }
+            .panel { padding: 14px; }
+            .speech-input-row { flex-direction: column; }
+            .speech-input-row .btn { width: 100%; }
+            .bg-options { grid-template-columns: repeat(4, 1fr); }
+            .landmark-grid { grid-template-columns: repeat(2, 1fr); }
+            .nav-links { display: none; position: absolute; top: 72px; right: 12px; background: var(--bg-card); border: 1px solid var(--border-color); padding: 16px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); flex-direction: column; gap: 12px; z-index: 1001; }
+            .nav-links.show { display: flex; }
+            .mobile-menu-btn { display: block; background: none; border: none; cursor: pointer; color: var(--text-secondary); padding: 8px; }
         }
     </style>
 </head>
 <body>
-    <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
             <a href="index.html" class="nav-logo">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                    <rect width="32" height="32" rx="8" fill="url(#logo-gradient)"/>
-                    <path d="M10 18C10 18 12 22 16 22C20 22 22 18 22 18" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                    <circle cx="12" cy="13" r="2" fill="white"/>
-                    <circle cx="20" cy="13" r="2" fill="white"/>
-                    <defs>
-                        <linearGradient id="logo-gradient" x1="0" y1="0" x2="32" y2="32">
-                            <stop stop-color="#6366f1"/>
-                            <stop offset="1" stop-color="#ec4899"/>
-                        </linearGradient>
-                    </defs>
-                </svg>
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="url(#lg)"/><path d="M10 18C10 18 12 22 16 22C20 22 22 18 22 18" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="13" r="2" fill="white"/><circle cx="20" cy="13" r="2" fill="white"/><defs><linearGradient id="lg" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#ec4899"/></linearGradient></defs></svg>
                 <span>LipSync AI</span>
             </a>
             <div class="nav-links" id="nav-links">
                 <a href="index.html">Home</a>
                 <a href="index.html#app">Lip-Sync Mode</a>
                 <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
-                    <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="5"></circle>
-                        <line x1="12" y1="1" x2="12" y2="3"></line>
-                        <line x1="12" y1="21" x2="12" y2="23"></line>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                        <line x1="1" y1="12" x2="3" y2="12"></line>
-                        <line x1="21" y1="12" x2="23" y2="12"></line>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                    </svg>
-                    <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                    </svg>
+                    <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                 </button>
             </div>
             <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Menu">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="3" y1="6" x2="21" y2="6"></line>
-                    <line x1="3" y1="12" x2="21" y2="12"></line>
-                    <line x1="3" y1="18" x2="21" y2="18"></line>
-                </svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
         </div>
     </nav>
 
-    <!-- Header -->
     <div class="live-header">
-        <h1>Live Webcam Mode</h1>
-        <p>Your face drives the avatar in real-time. Speak and it lip-syncs live!</p>
+        <h1>Live Mode</h1>
+        <p>MediaPipe Face Mesh tracks 478 landmarks for precise lip sync and face movement</p>
     </div>
 
-    <!-- Main Content -->
     <div class="live-container">
-        <!-- Left: Webcam + Controls -->
+        <!-- Left Panel -->
         <div>
             <!-- Upload Avatar -->
-            <div class="panel" style="margin-bottom: 24px;">
+            <div class="panel" style="margin-bottom: 16px;">
                 <div class="panel-header">
                     <div class="panel-title">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                            <polyline points="21 15 16 10 5 21"></polyline>
-                        </svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                         Avatar Photo
                     </div>
-                    <span id="avatar-status" style="font-size: 0.85rem; color: var(--text-muted);">Not uploaded</span>
+                    <span id="avatar-status" style="font-size: 0.8rem; color: var(--text-muted);">Not uploaded</span>
                 </div>
-                <div id="upload-area" style="border: 2px dashed var(--gray-300); border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; background: var(--bg-primary);">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                        <polyline points="21 15 16 10 5 21"></polyline>
-                    </svg>
-                    <p style="color: var(--text-secondary); margin-top: 12px;">Click or drag a photo here</p>
-                    <p style="color: var(--text-muted); font-size: 0.8rem;">JPG, PNG, WebP</p>
+                <div id="upload-area" style="border: 2px dashed var(--gray-300); border-radius: 10px; padding: 28px; text-align: center; cursor: pointer; background: var(--bg-primary);">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <p style="color: var(--text-secondary); margin-top: 10px; font-size: 0.9rem;">Click or drag a photo</p>
                     <input type="file" id="avatar-input" accept="image/*" hidden>
                 </div>
-                <div id="avatar-preview" style="display: none; text-align: center; margin-top: 16px;">
-                    <img id="avatar-img" style="max-height: 120px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                <div id="avatar-preview" style="display: none; text-align: center; margin-top: 12px;">
+                    <img id="avatar-img" style="max-height: 100px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
                 </div>
             </div>
 
@@ -426,110 +128,103 @@
             <div class="panel">
                 <div class="panel-header">
                     <div class="panel-title">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M23 7l-7 5 7 5V7z"></path>
-                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-                        </svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
                         Your Camera
+                        <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 400;">478 landmarks</span>
                     </div>
                     <span class="live-badge" id="cam-badge" style="display: none;">LIVE</span>
                 </div>
                 <div class="video-box">
                     <video id="webcam-video" autoplay playsinline muted></video>
+                    <canvas id="landmark-canvas" style="position: absolute; top: 0; left: 0; pointer-events: none; transform: scaleX(-1);"></canvas>
                     <div class="video-overlay">
                         <span class="status-dot" id="cam-dot"></span>
                         <span id="cam-status">Camera off</span>
                     </div>
                 </div>
 
-                <!-- Pose Values -->
-                <div class="pose-grid">
-                    <div class="pose-stat">
-                        <label>Tilt</label>
-                        <span id="val-tilt">0.00</span>
-                    </div>
-                    <div class="pose-stat">
-                        <label>Nod</label>
-                        <span id="val-nod">0.00</span>
-                    </div>
-                    <div class="pose-stat">
-                        <label>Turn</label>
-                        <span id="val-turn">0.00</span>
-                    </div>
+                <!-- Landmark Values -->
+                <div class="landmark-grid">
+                    <div class="landmark-stat"><label>Mouth Open</label><span id="val-mouth">0.00</span></div>
+                    <div class="landmark-stat"><label>Mouth Width</label><span id="val-width">0.00</span></div>
+                    <div class="landmark-stat"><label>Head Turn</label><span id="val-turn">0.00</span></div>
+                    <div class="landmark-stat"><label>Head Nod</label><span id="val-nod">0.00</span></div>
+                    <div class="landmark-stat"><label>Jaw Open</label><span id="val-jaw">0.00</span></div>
+                    <div class="landmark-stat"><label>Lip Top</label><span id="val-lipT">0.00</span></div>
+                    <div class="landmark-stat"><label>Lip Bottom</label><span id="val-lipB">0.00</span></div>
+                    <div class="landmark-stat"><label>Smile</label><span id="val-smile">0.00</span></div>
                 </div>
 
-                <!-- Camera Controls -->
                 <div class="controls">
                     <button id="start-cam" class="btn btn-primary">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                        </svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                         Start Camera
                     </button>
                     <button id="stop-cam" class="btn btn-secondary" disabled>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="6" y="6" width="12" height="12"></rect>
-                        </svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/></svg>
                         Stop
                     </button>
                 </div>
 
-                <!-- Live Speech -->
-                <div class="speech-section">
-                    <h3>Live Speech</h3>
-                    <div class="voice-select">
-                        <label>Voice</label>
-                        <select id="voice-select">
-                            <option value="aria">Aria (Female, US)</option>
-                            <option value="guy">Guy (Male, US)</option>
-                            <option value="davis">Davis (Male, US)</option>
-                            <option value="jenny">Jenny (Female, US)</option>
-                            <option value="tony">Tony (Male, US)</option>
-                            <option value="nancy">Nancy (Female, US)</option>
-                            <option value="andy">Andy (Male, UK)</option>
-                            <option value="sonia">Sonia (Female, UK)</option>
-                        </select>
-                    </div>
-                    <div class="speech-input-row">
-                        <input type="text" id="speech-text" placeholder="Type text to speak live..." maxlength="200">
-                        <button id="speak-btn" class="btn btn-primary">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                                <line x1="12" y1="19" x2="12" y2="22"></line>
-                            </svg>
-                            Speak
-                        </button>
-                    </div>
-                    <div class="audio-visualizer">
-                        <canvas id="audio-canvas"></canvas>
-                    </div>
-                    <div class="meters">
-                        <div class="meter"><div class="meter-fill" id="meter-1"></div></div>
-                        <div class="meter"><div class="meter-fill" id="meter-2"></div></div>
-                        <div class="meter"><div class="meter-fill" id="meter-3"></div></div>
-                        <div class="meter"><div class="meter-fill" id="meter-4"></div></div>
+                <!-- Mode Tabs -->
+                <div class="mode-tabs" style="margin-top: 16px;">
+                    <button class="mode-tab active" data-mode="mirror">Mirror Mode</button>
+                    <button class="mode-tab" data-mode="speech">Speech Mode</button>
+                </div>
+
+                <!-- Mirror Mode Info -->
+                <div id="mirror-panel">
+                    <p style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 10px;">
+                        Your face is tracked with 478 points. Mouth, jaw, eyebrows, and head movements are all mirrored to the avatar in real-time.
+                    </p>
+                </div>
+
+                <!-- Speech Mode -->
+                <div id="speech-panel" style="display: none;">
+                    <div class="speech-section" style="border: none; margin: 0; padding: 0;">
+                        <div class="voice-select">
+                            <label>Voice</label>
+                            <select id="voice-select">
+                                <option value="aria">Aria (Female, US)</option>
+                                <option value="guy">Guy (Male, US)</option>
+                                <option value="davis">Davis (Male, US)</option>
+                                <option value="jenny">Jenny (Female, US)</option>
+                                <option value="tony">Tony (Male, US)</option>
+                                <option value="nancy">Nancy (Female, US)</option>
+                                <option value="andy">Andy (Male, UK)</option>
+                                <option value="sonia">Sonia (Female, UK)</option>
+                            </select>
+                        </div>
+                        <div class="speech-input-row">
+                            <input type="text" id="speech-text" placeholder="Type text to speak..." maxlength="200">
+                            <button id="speak-btn" class="btn btn-primary" style="white-space: nowrap;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                                Speak
+                            </button>
+                        </div>
+                        <div class="audio-visualizer"><canvas id="audio-canvas"></canvas></div>
+                        <div class="meters">
+                            <div class="meter"><div class="meter-fill" id="meter-1"></div></div>
+                            <div class="meter"><div class="meter-fill" id="meter-2"></div></div>
+                            <div class="meter"><div class="meter-fill" id="meter-3"></div></div>
+                            <div class="meter"><div class="meter-fill" id="meter-4"></div></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Right: Avatar Output -->
+        <!-- Right Panel: Avatar Output -->
         <div>
-            <div class="panel" style="height: 100%;">
+            <div class="panel" style="min-height: 600px;">
                 <div class="panel-header">
                     <div class="panel-title">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-                            <line x1="9" y1="9" x2="9.01" y2="9"></line>
-                            <line x1="15" y1="9" x2="15.01" y2="9"></line>
-                        </svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                         Avatar Output
                     </div>
                     <span class="live-badge" id="avatar-badge" style="display: none;">LIVE</span>
                 </div>
-                <div class="video-box" style="min-height: 400px;">
+                <div class="video-box" style="aspect-ratio: 4/3;">
                     <canvas id="avatar-canvas"></canvas>
                     <div class="video-overlay">
                         <span class="status-dot" id="avatar-dot"></span>
@@ -537,49 +232,39 @@
                     </div>
                 </div>
 
+                <!-- Background Selector -->
+                <div class="bg-section">
+                    <h3>Background</h3>
+                    <div class="bg-options" id="bg-options">
+                        <button class="bg-option active" data-bg="dark" style="background: linear-gradient(135deg, #0a0a1a, #1a1a2e);"></button>
+                        <button class="bg-option" data-bg="gradient1" style="background: linear-gradient(135deg, #667eea, #764ba2);"></button>
+                        <button class="bg-option" data-bg="gradient2" style="background: linear-gradient(135deg, #f093fb, #f5576c);"></button>
+                        <button class="bg-option" data-bg="gradient3" style="background: linear-gradient(135deg, #4facfe, #00f2fe);"></button>
+                        <button class="bg-option" data-bg="gradient4" style="background: linear-gradient(135deg, #43e97b, #38f9d7);"></button>
+                        <button class="bg-option" data-bg="white" style="background: #ffffff; border: 1px solid #e5e7eb;"></button>
+                        <button class="bg-option" data-bg="blur" style="background: linear-gradient(135deg, #1a1a2e, #2a2a4a);"></button>
+                        <button class="bg-option upload-btn" id="bg-upload-btn" title="Upload custom background">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <input type="file" id="bg-file-input" accept="image/*" hidden>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="feature-list">
-                    <div class="feature-item">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        Real-time head tracking mirrors your movements
-                    </div>
-                    <div class="feature-item">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        Live lip-sync when you type and speak
-                    </div>
-                    <div class="feature-item">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        Smooth motion with natural animations
-                    </div>
-                    <div class="feature-item">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        8 different voice options
-                    </div>
+                    <div class="feature-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>478-point MediaPipe Face Mesh tracking</div>
+                    <div class="feature-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Precise mouth, jaw, and lip detection</div>
+                    <div class="feature-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Head rotation and eyebrow tracking</div>
+                    <div class="feature-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Real-time mirror + text-to-speech modes</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Toast -->
     <div id="error-toast" class="toast hidden">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-        </svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span class="toast-message" id="error-message"></span>
         <button class="toast-close" onclick="document.getElementById('error-toast').classList.add('hidden')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
     </div>
 
@@ -589,29 +274,66 @@
     // State
     let uploadedFileId = null;
     let cameraStream = null;
-    let ws = null;
-    let animationFrame = null;
+    let mpCamera = null;
+    let faceMesh = null;
     let audioContext = null;
     let analyser = null;
+    let currentMode = 'mirror';
+    let bgImage = null;
+    let bgStyle = 'dark';
+    let isTracking = false;
+    let latestLandmarks = null;
 
-    // Mobile menu toggle
-    document.getElementById('mobile-menu-btn').addEventListener('click', () => {
-        document.getElementById('nav-links').classList.toggle('show');
-    });
-    // Close menu when clicking a link
-    document.querySelectorAll('#nav-links a').forEach(link => {
-        link.addEventListener('click', () => document.getElementById('nav-links').classList.remove('show'));
-    });
+    // Background presets
+    const bgPresets = {
+        dark: (ctx, w, h) => { ctx.fillStyle = '#0a0a1a'; ctx.fillRect(0, 0, w, h); },
+        gradient1: (ctx, w, h) => { const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#667eea'); g.addColorStop(1, '#764ba2'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); },
+        gradient2: (ctx, w, h) => { const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#f093fb'); g.addColorStop(1, '#f5576c'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); },
+        gradient3: (ctx, w, h) => { const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#4facfe'); g.addColorStop(1, '#00f2fe'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); },
+        gradient4: (ctx, w, h) => { const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#43e97b'); g.addColorStop(1, '#38f9d7'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); },
+        white: (ctx, w, h) => { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); },
+        blur: (ctx, w, h) => { const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#1a1a2e'); g.addColorStop(1, '#2a2a4a'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); },
+        image: (ctx, w, h) => { if (bgImage && bgImage.complete) ctx.drawImage(bgImage, 0, 0, w, h); else { ctx.fillStyle = '#0a0a1a'; ctx.fillRect(0, 0, w, h); } }
+    };
+
+    // MediaPipe Face Mesh landmark indices
+    const LANDMARKS = {
+        // Mouth outer
+        mouthTop: 13, mouthBottom: 14,
+        mouthLeft: 78, mouthRight: 308,
+        // Mouth inner
+        innerTop: 13, innerBottom: 14,
+        // Lips
+        upperLip: 13, lowerLip: 14,
+        lipLeft: 61, lipRight: 291,
+        // Jaw
+        jawLeft: 234, jawRight: 454,
+        jawBottom: 152,
+        // Eyes
+        eyeLeftTop: 159, eyeLeftBottom: 145,
+        eyeRightTop: 386, eyeRightBottom: 374,
+        // Eyebrows
+        browLeft: 70, browRight: 300,
+        // Nose
+        noseTip: 1, noseBridge: 6,
+        // Face oval
+        forehead: 10, chin: 152,
+    };
+
+    // Mobile menu
+    document.getElementById('mobile-menu-btn').addEventListener('click', () => document.getElementById('nav-links').classList.toggle('show'));
+    document.querySelectorAll('#nav-links a').forEach(l => l.addEventListener('click', () => document.getElementById('nav-links').classList.remove('show')));
 
     // DOM
     const uploadArea = document.getElementById('upload-area');
     const avatarInput = document.getElementById('avatar-input');
     const avatarPreview = document.getElementById('avatar-preview');
     const avatarImg = document.getElementById('avatar-img');
-    const avatarStatus = document.getElementById('avatar-status');
+    const avatarStatusEl = document.getElementById('avatar-status');
     const startCamBtn = document.getElementById('start-cam');
     const stopCamBtn = document.getElementById('stop-cam');
     const webcamVideo = document.getElementById('webcam-video');
+    const landmarkCanvas = document.getElementById('landmark-canvas');
     const camBadge = document.getElementById('cam-badge');
     const camDot = document.getElementById('cam-dot');
     const camStatus = document.getElementById('cam-status');
@@ -624,20 +346,45 @@
     const voiceSelect = document.getElementById('voice-select');
     const audioCanvas = document.getElementById('audio-canvas');
     const avatarCtx = avatarCanvas.getContext('2d');
+    const lmCtx = landmarkCanvas.getContext('2d');
     const audioCtx2d = audioCanvas.getContext('2d');
-
-    // Avatar image
     let avatarImage = null;
 
-    // Upload
+    // Mode tabs
+    document.querySelectorAll('.mode-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentMode = tab.dataset.mode;
+            document.getElementById('mirror-panel').style.display = currentMode === 'mirror' ? 'block' : 'none';
+            document.getElementById('speech-panel').style.display = currentMode === 'speech' ? 'block' : 'none';
+        });
+    });
+
+    // Background selection
+    document.querySelectorAll('.bg-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+            document.querySelectorAll('.bg-option').forEach(o => o.classList.remove('active'));
+            opt.classList.add('active');
+            bgStyle = opt.dataset.bg;
+            if (bgStyle !== 'image') bgImage = null;
+        });
+    });
+    document.getElementById('bg-upload-btn').addEventListener('click', () => document.getElementById('bg-file-input').click());
+    document.getElementById('bg-file-input').addEventListener('change', e => {
+        if (e.target.files[0]) {
+            bgImage = new Image();
+            bgImage.src = URL.createObjectURL(e.target.files[0]);
+            bgStyle = 'image';
+            document.querySelectorAll('.bg-option').forEach(o => o.classList.remove('active'));
+        }
+    });
+
+    // Upload avatar
     uploadArea.addEventListener('click', () => avatarInput.click());
     uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.style.borderColor = 'var(--primary)'; });
     uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = 'var(--gray-300)'; });
-    uploadArea.addEventListener('drop', e => {
-        e.preventDefault();
-        uploadArea.style.borderColor = 'var(--gray-300)';
-        if (e.dataTransfer.files[0]) uploadAvatar(e.dataTransfer.files[0]);
-    });
+    uploadArea.addEventListener('drop', e => { e.preventDefault(); uploadArea.style.borderColor = 'var(--gray-300)'; if (e.dataTransfer.files[0]) uploadAvatar(e.dataTransfer.files[0]); });
     avatarInput.addEventListener('change', e => { if (e.target.files[0]) uploadAvatar(e.target.files[0]); });
 
     async function uploadAvatar(file) {
@@ -652,75 +399,198 @@
             avatarImg.src = avatarImage.src;
             avatarPreview.style.display = 'block';
             uploadArea.style.display = 'none';
-            avatarStatus.textContent = file.name;
-            avatarStatus.style.color = 'var(--success)';
-        } catch (e) {
-            showError('Upload failed: ' + e.message);
-        }
+            avatarStatusEl.textContent = file.name;
+            avatarStatusEl.style.color = 'var(--success)';
+        } catch (e) { showError('Upload failed: ' + e.message); }
     }
 
-    // Camera
+    // ===== MEDIAPIPE FACE MESH =====
     startCamBtn.addEventListener('click', startCamera);
     stopCamBtn.addEventListener('click', stopCamera);
 
     async function startCamera() {
         try {
-            // Mobile: prefer front camera, lower resolution for performance
             const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            const constraints = {
-                video: {
-                    facingMode: 'user',
-                    width: { ideal: isMobile ? 480 : 640 },
-                    height: { ideal: isMobile ? 360 : 480 }
-                },
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: { ideal: isMobile ? 480 : 640 }, height: { ideal: isMobile ? 360 : 480 } },
                 audio: false
-            };
-
-            cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
-            webcamVideo.srcObject = cameraStream;
-
-            // Wait for video to be ready
-            await new Promise(resolve => {
-                webcamVideo.onloadedmetadata = resolve;
             });
+            cameraStream = stream;
+            webcamVideo.srcObject = stream;
+
+            await new Promise(r => { webcamVideo.onloadedmetadata = r; });
+
+            // Setup landmark canvas
+            landmarkCanvas.width = webcamVideo.videoWidth || 640;
+            landmarkCanvas.height = webcamVideo.videoHeight || 480;
+
+            // Setup avatar canvas
+            avatarCanvas.width = webcamVideo.videoWidth || 640;
+            avatarCanvas.height = webcamVideo.videoHeight || 480;
 
             startCamBtn.disabled = true;
             stopCamBtn.disabled = false;
             camBadge.style.display = 'inline';
             camDot.classList.add('active');
-            camStatus.textContent = 'Camera active';
+            camStatus.textContent = 'Tracking...';
             avatarBadge.style.display = 'inline';
             avatarDot.classList.add('active');
-            avatarStatusText.textContent = 'Tracking...';
+            avatarStatusText.textContent = 'Mirroring...';
 
-            // Set canvas size to match video
-            avatarCanvas.width = webcamVideo.videoWidth || 640;
-            avatarCanvas.height = webcamVideo.videoHeight || 480;
+            // Init MediaPipe Face Mesh
+            await initFaceMesh();
 
-            // Start WebSocket for pose
-            connectWebSocket();
-
-            // Start pose detection loop
-            detectPose();
+            startCamBtn.disabled = true;
         } catch (e) {
-            console.error('Camera error:', e);
-            if (e.name === 'NotAllowedError') {
-                showError('Camera permission denied. Please allow camera access in your browser settings.');
-            } else if (e.name === 'NotFoundError') {
-                showError('No camera found on this device.');
-            } else {
-                showError('Camera error: ' + e.message);
+            if (e.name === 'NotAllowedError') showError('Camera permission denied.');
+            else if (e.name === 'NotFoundError') showError('No camera found.');
+            else showError('Camera error: ' + e.message);
+        }
+    }
+
+    async function initFaceMesh() {
+        faceMesh = new FaceMesh({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`
+        });
+
+        faceMesh.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        faceMesh.onResults(onFaceResults);
+
+        mpCamera = new Camera(webcamVideo, {
+            onFrame: async () => {
+                if (faceMesh && webcamVideo.readyState >= 2) {
+                    await faceMesh.send({ image: webcamVideo });
+                }
+            },
+            width: webcamVideo.videoWidth || 640,
+            height: webcamVideo.videoHeight || 480
+        });
+
+        await mpCamera.start();
+        isTracking = true;
+    }
+
+    function onFaceResults(results) {
+        // Draw landmarks on canvas
+        lmCtx.clearRect(0, 0, landmarkCanvas.width, landmarkCanvas.height);
+
+        if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+            const landmarks = results.multiFaceLandmarks[0];
+            latestLandmarks = landmarks;
+
+            // Draw landmark points
+            lmCtx.fillStyle = 'rgba(99, 102, 241, 0.6)';
+            for (let i = 0; i < landmarks.length; i += 3) {
+                const x = landmarks[i].x * landmarkCanvas.width;
+                const y = landmarks[i].y * landmarkCanvas.height;
+                lmCtx.beginPath();
+                lmCtx.arc(x, y, 1, 0, Math.PI * 2);
+                lmCtx.fill();
+            }
+
+            // Extract face parameters
+            const params = extractFaceParams(landmarks);
+
+            // Update display values
+            document.getElementById('val-mouth').textContent = params.mouthOpen.toFixed(2);
+            document.getElementById('val-width').textContent = params.mouthWidth.toFixed(2);
+            document.getElementById('val-turn').textContent = params.headTurn.toFixed(2);
+            document.getElementById('val-nod').textContent = params.headNod.toFixed(2);
+            document.getElementById('val-jaw').textContent = params.jawOpen.toFixed(2);
+            document.getElementById('val-lipT').textContent = params.lipTop.toFixed(2);
+            document.getElementById('val-lipB').textContent = params.lipBottom.toFixed(2);
+            document.getElementById('val-smile').textContent = params.smile.toFixed(2);
+
+            // Render avatar
+            if (currentMode === 'mirror') {
+                renderAvatar({
+                    head_rotation: { x: params.headNod * 20, y: params.headTurn * 30, z: params.headTilt * 10 },
+                    phoneme: {
+                        open: params.mouthOpen,
+                        wide: params.mouthWidth,
+                        round: params.mouthRound,
+                        jaw: params.jawOpen,
+                        tension: 0,
+                        lipTop: params.lipTop,
+                        lipBottom: params.lipBottom,
+                        smile: params.smile
+                    }
+                });
             }
         }
     }
 
+    function extractFaceParams(landmarks) {
+        // Key landmark positions
+        const mouthTop = landmarks[LANDMARKS.mouthTop];
+        const mouthBottom = landmarks[LANDMARKS.mouthBottom];
+        const mouthLeft = landmarks[LANDMARKS.lipLeft];
+        const mouthRight = landmarks[LANDMARKS.lipRight];
+        const jawLeft = landmarks[LANDMARKS.jawLeft];
+        const jawRight = landmarks[LANDMARKS.jawRight];
+        const noseTip = landmarks[LANDMARKS.noseTip];
+        const noseBridge = landmarks[LANDMARKS.noseBridge];
+        const forehead = landmarks[LANDMARKS.forehead];
+        const chin = landmarks[LANDMARKS.chin];
+        const browLeft = landmarks[LANDMARKS.browLeft];
+        const browRight = landmarks[LANDMARKS.browRight];
+        const eyeLeftTop = landmarks[LANDMARKS.eyeLeftTop];
+        const eyeLeftBottom = landmarks[LANDMARKS.eyeLeftBottom];
+
+        // Mouth openness (vertical distance between lips)
+        const mouthOpenRaw = Math.abs(mouthTop.y - mouthBottom.y);
+        const mouthOpen = Math.min(1, mouthOpenRaw * 8);
+
+        // Mouth width (horizontal distance)
+        const mouthWidthRaw = Math.abs(mouthRight.x - mouthLeft.x);
+        const mouthWidth = Math.min(1, mouthWidthRaw * 3);
+
+        // Mouth roundness (when mouth is more circular vs stretched)
+        const mouthRound = mouthOpen > 0.2 ? Math.min(1, (mouthOpen / Math.max(0.01, mouthWidth)) * 0.5) : 0;
+
+        // Jaw opening (larger area)
+        const jawOpenRaw = Math.abs(chin.y - noseBridge.y);
+        const faceHeight = Math.abs(forehead.y - chin.y);
+        const jawOpen = Math.min(1, (jawOpenRaw / Math.max(0.01, faceHeight)) * 0.3);
+
+        // Lip positions (relative to mouth center)
+        const mouthCenterY = (mouthTop.y + mouthBottom.y) / 2;
+        const lipTop = Math.max(0, (mouthCenterY - mouthTop.y) * 10);
+        const lipBottom = Math.max(0, (mouthBottom.y - mouthCenterY) * 10);
+
+        // Head turn (nose position relative to face center)
+        const faceCenterX = (jawLeft.x + jawRight.x) / 2;
+        const headTurn = (noseTip.x - faceCenterX) * 5;
+
+        // Head nod (vertical position of nose)
+        const faceCenterY = (forehead.y + chin.y) / 2;
+        const headNod = (noseTip.y - faceCenterY) * 4;
+
+        // Head tilt (angle between brow positions)
+        const headTilt = (browRight.y - browLeft.y) * 5;
+
+        // Smile (mouth corners up)
+        const mouthCenterX = (mouthLeft.x + mouthRight.x) / 2;
+        const smileRaw = ((mouthLeft.y + mouthRight.y) / 2) - mouthCenterY;
+        const smile = Math.min(1, Math.max(0, -smileRaw * 10));
+
+        return {
+            mouthOpen, mouthWidth, mouthRound, jawOpen,
+            lipTop, lipBottom, headTurn, headNod, headTilt, smile
+        };
+    }
+
     function stopCamera() {
-        if (cameraStream) {
-            cameraStream.getTracks().forEach(t => t.stop());
-            cameraStream = null;
-        }
-        if (ws) { ws.close(); ws = null; }
-        if (animationFrame) { cancelAnimationFrame(animationFrame); animationFrame = null; }
+        if (mpCamera) { mpCamera.stop(); mpCamera = null; }
+        if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+        faceMesh = null;
+        isTracking = false;
         webcamVideo.srcObject = null;
         startCamBtn.disabled = false;
         stopCamBtn.disabled = true;
@@ -729,565 +599,215 @@
         camStatus.textContent = 'Camera off';
         avatarBadge.style.display = 'none';
         avatarDot.classList.remove('active');
-        avatarStatusText.textContent = 'Waiting for camera...';
+        avatarStatusText.textContent = 'Waiting...';
+        lmCtx.clearRect(0, 0, landmarkCanvas.width, landmarkCanvas.height);
         avatarCtx.clearRect(0, 0, avatarCanvas.width, avatarCanvas.height);
     }
 
-    // WebSocket
-    function connectWebSocket() {
-        const wsUrl = API_BASE.replace('https://', 'wss://').replace('http://', 'ws://');
-        ws = new WebSocket(`${wsUrl}/ws/pose`);
-        ws.onopen = () => console.log('WebSocket connected');
-        ws.onmessage = (e) => {
-            const msg = JSON.parse(e.data);
-            if (msg.type === 'animation') {
-                renderAvatar(msg.params);
-            }
-        };
-        ws.onerror = (e) => console.error('WebSocket error:', e);
-        ws.onclose = () => console.log('WebSocket closed');
-    }
-
-    // Simple pose detection from webcam using face position
-    function detectPose() {
-        if (!cameraStream) return;
-
-        // Create temp canvas to analyze webcam (smaller = faster on mobile)
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 48;
-        tempCanvas.height = 36;
-        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-
-        let frameCount = 0;
-
-        function loop() {
-            if (!cameraStream) return;
-
-            // Skip frames on mobile for performance
-            frameCount++;
-            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            if (isMobile && frameCount % 2 !== 0) {
-                animationFrame = requestAnimationFrame(loop);
-                return;
-            }
-
-            tempCtx.drawImage(webcamVideo, 0, 0, 48, 36);
-            const data = tempCtx.getImageData(0, 0, 48, 36).data;
-
-            // Simple brightness-based face detection
-            let sumX = 0, sumY = 0, count = 0;
-            for (let y = 6; y < 30; y++) {
-                for (let x = 8; x < 40; x++) {
-                    const i = (y * 48 + x) * 4;
-                    const r = data[i], g = data[i+1], b = data[i+2];
-                    // Skin color detection (works across skin tones)
-                    const isSkin = (r > 100 && g > 60 && b > 40) &&
-                                   (r > g && r > b) &&
-                                   ((r - g) > 15) &&
-                                   (r - b) > 15;
-                    if (isSkin) {
-                        sumX += x;
-                        sumY += y;
-                        count++;
-                    }
-                }
-            }
-
-            if (count > 30) {
-                const faceX = sumX / count / 48;
-                const faceY = sumY / count / 36;
-
-                // Map to pose values (inverted for natural mirror)
-                const turn = (0.5 - faceX) * 2.5;
-                const nod = (faceY - 0.5) * 2;
-                const tilt = turn * 0.25;
-
-                // Update display
-                document.getElementById('val-tilt').textContent = tilt.toFixed(2);
-                document.getElementById('val-nod').textContent = nod.toFixed(2);
-                document.getElementById('val-turn').textContent = turn.toFixed(2);
-
-                // Send to server
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        landmarks: [
-                            { x: faceX, y: faceY, visibility: 1 },
-                            { x: faceX - 0.15, y: faceY + 0.2, visibility: 1 },
-                            { x: faceX + 0.15, y: faceY + 0.2, visibility: 1 }
-                        ]
-                    }));
-                }
-
-                // Render avatar with spring-based tracking
-                renderAvatar({
-                    head_rotation: { x: nod * 18, y: turn * 25, z: tilt * 8 },
-                    face: { mouth_open: 0 },
-                    phoneme: { open: 0, wide: 0.5, round: 0, jaw: 0, tension: 0 },
-                    confidence: 1
-                });
-            }
-
-            animationFrame = requestAnimationFrame(loop);
-        }
-        loop();
-    }
-
-    // ===== LIP SYNC ENGINE =====
-    // Improved spring physics with critically damped response
+    // ===== SPRING PHYSICS =====
     class Spring {
-        constructor(value = 0, stiffness = 0.12, damping = 0.82) {
-            this.target = value;
-            this.current = value;
-            this.velocity = 0;
-            this.stiffness = stiffness;
-            this.damping = damping;
-            this._prevTarget = value;
-        }
-        update(dt) {
-            // Critically damped spring for smooth, non-oscillating response
-            const force = (this.target - this.current) * this.stiffness * dt;
-            this.velocity = this.velocity * this.damping + force;
-            this.current += this.velocity;
-            // Clamp to prevent overshoot artifacts
-            if (Math.abs(this.velocity) < 0.0001 && Math.abs(this.target - this.current) < 0.001) {
-                this.current = this.target;
-                this.velocity = 0;
-            }
-            return this.current;
-        }
-        set(val) { this.target = val; }
-        snap(val) { this.current = val; this.target = val; this.velocity = 0; }
+        constructor(val = 0, k = 0.18, d = 0.78) { this.target = val; this.current = val; this.velocity = 0; this.k = k; this.d = d; }
+        update(dt) { this.velocity = (this.velocity + (this.target - this.current) * this.k * dt) * this.d; this.current += this.velocity; return this.current; }
+        set(v) { this.target = v; }
+        snap(v) { this.current = v; this.target = v; this.velocity = 0; }
     }
 
-    // Audio amplitude history for smoothing
-    const ampHistory = new Float32Array(8); // Last 8 frames
-    let ampIndex = 0;
-
-    function smoothedAmp(value) {
-        ampHistory[ampIndex % 8] = value;
-        ampIndex++;
-        let sum = 0;
-        for (let i = 0; i < 8; i++) sum += ampHistory[i];
-        return sum / 8;
-    }
-
-    // Previous phoneme state for blending
-    let prevPhoneme = { open: 0, wide: 0.5, round: 0, jaw: 0, tension: 0 };
-
-    // Animation state with tuned springs
     const anim = {
-        mouthOpen: new Spring(0, 0.18, 0.78),
-        mouthWidth: new Spring(0.5, 0.14, 0.82),
+        headX: new Spring(0, 0.12, 0.82),
+        headY: new Spring(0, 0.12, 0.82),
+        headZ: new Spring(0, 0.1, 0.84),
+        mouthOpen: new Spring(0, 0.22, 0.72),
+        mouthWidth: new Spring(0.5, 0.15, 0.8),
         mouthRound: new Spring(0, 0.12, 0.8),
-        jawDrop: new Spring(0, 0.1, 0.85),
+        jawDrop: new Spring(0, 0.14, 0.78),
         lipTop: new Spring(0, 0.16, 0.8),
         lipBottom: new Spring(0, 0.14, 0.82),
-        headX: new Spring(0, 0.06, 0.88),
-        headY: new Spring(0, 0.06, 0.88),
-        headZ: new Spring(0, 0.08, 0.85),
-        blinkTimer: 0,
-        blinkState: 0,
-        eyeOpenness: new Spring(1, 0.25, 0.65),
+        smile: new Spring(0, 0.1, 0.85),
     };
 
-    // Phoneme detection from frequency spectrum
-    function detectPhoneme(freqData) {
-        const len = freqData.length;
+    let lastTime = performance.now();
 
-        // Finer frequency bands for better phoneme detection
-        // Using 7 bands for more nuanced mouth shapes
-        const bands = [0, 0, 0, 0, 0, 0, 0];
-        const bandRanges = [
-            [0, 3],      // Sub-bass (voicing energy)
-            [3, 8],      // Bass (fundamental frequency)
-            [8, 16],     // Low-mid (first formant F1)
-            [16, 28],    // Mid (second formant F2)
-            [28, 44],    // High-mid (third formant F3)
-            [44, 64],    // High (sibilants)
-            [64, 80]     // Very high (fricatives)
-        ];
-
-        for (let b = 0; b < 7; b++) {
-            let sum = 0;
-            let count = 0;
-            for (let i = bandRanges[b][0]; i < bandRanges[b][1] && i < len; i++) {
-                sum += freqData[i];
-                count++;
-            }
-            bands[b] = count > 0 ? sum / count / 255 : 0;
-        }
-
-        const [subBass, bass, f1, f2, f3, sibilant, fricative] = bands;
-        const totalEnergy = subBass + bass + f1 + f2 + f3 + sibilant + fricative;
-        const voicing = (subBass + bass) / 2;
-
-        let phoneme = {
-            open: 0,
-            wide: 0.5,
-            round: 0,
-            jaw: 0,
-            tension: 0,
-            lipTop: 0,
-            lipBottom: 0,
-        };
-
-        // Silence threshold
-        if (totalEnergy < 0.03) {
-            return phoneme;
-        }
-
-        const energyNorm = Math.min(1, totalEnergy * 1.8);
-
-        if (voicing > 0.1) {
-            // Voiced sounds - analyze formants for vowel quality
-            if (f1 > 0.25 && f2 > 0.2) {
-                // "AH" / "AA" - open, medium-wide
-                phoneme.open = Math.min(0.95, f1 * 2.2);
-                phoneme.wide = 0.55 + f2 * 0.15;
-                phoneme.jaw = f1 * 0.9;
-                phoneme.lipBottom = f1 * 0.7;
-            } else if (f1 > 0.3 && f2 < 0.15) {
-                // "OO" / "UH" - round, moderate open
-                phoneme.open = Math.min(0.75, f1 * 1.8);
-                phoneme.round = Math.min(0.9, f1 * 2);
-                phoneme.wide = 0.25 + f1 * 0.1;
-                phoneme.jaw = f1 * 0.5;
-                phoneme.lipTop = f1 * 0.3;
-                phoneme.lipBottom = f1 * 0.5;
-            } else if (f2 > 0.25 && f1 < 0.2) {
-                // "EE" / "IH" - wide, tense, slightly open
-                phoneme.open = Math.min(0.55, f2 * 1.5);
-                phoneme.wide = 0.85;
-                phoneme.tension = 0.75;
-                phoneme.jaw = f2 * 0.25;
-                phoneme.lipTop = f2 * 0.2;
-            } else if (f3 > 0.2) {
-                // "EH" / "AE" - medium open, wide
-                phoneme.open = Math.min(0.7, energyNorm * 1.4);
-                phoneme.wide = 0.7;
-                phoneme.jaw = energyNorm * 0.5;
-                phoneme.lipBottom = energyNorm * 0.4;
-            } else {
-                // Default voiced
-                phoneme.open = Math.min(0.65, energyNorm * 1.3);
-                phoneme.wide = 0.5;
-                phoneme.jaw = energyNorm * 0.35;
-                phoneme.lipBottom = energyNorm * 0.3;
-            }
-        } else if (sibilant > 0.15 || fricative > 0.15) {
-            // Unvoiced fricatives: "S" "SH" "F" "TH"
-            const sibStrength = Math.min(1, (sibilant + fricative) * 2.5);
-            phoneme.open = 0.08 + sibStrength * 0.12;
-            phoneme.wide = 0.6 + sibStrength * 0.15;
-            phoneme.tension = sibStrength * 0.85;
-            phoneme.jaw = 0.05;
-            phoneme.lipTop = sibStrength * 0.15;
-        } else if (bass > 0.15 && totalEnergy < 0.12) {
-            // Plosives: "P" "B" "M" - lips together
-            phoneme.open = 0.02;
-            phoneme.tension = 0.9;
-            phoneme.wide = 0.4;
-            phoneme.lipTop = 0.1;
-            phoneme.lipBottom = 0.1;
-        }
-
-        // Smooth phoneme transitions (blend with previous frame)
-        const blend = 0.35; // How much to blend (0 = no blend, 1 = full previous)
-        phoneme.open = prevPhoneme.open * blend + phoneme.open * (1 - blend);
-        phoneme.wide = prevPhoneme.wide * blend + phoneme.wide * (1 - blend);
-        phoneme.round = prevPhoneme.round * blend + phoneme.round * (1 - blend);
-        phoneme.jaw = prevPhoneme.jaw * blend + phoneme.jaw * (1 - blend);
-        phoneme.tension = prevPhoneme.tension * blend + phoneme.tension * (1 - blend);
-        phoneme.lipTop = (prevPhoneme.lipTop || 0) * blend + phoneme.lipTop * (1 - blend);
-        phoneme.lipBottom = (prevPhoneme.lipBottom || 0) * blend + phoneme.lipBottom * (1 - blend);
-
-        prevPhoneme = { ...phoneme };
-
-        return phoneme;
-    }
-
-    // Draw realistic mouth with improved rendering
-    function drawMouth(ctx, x, y, size, phoneme, openness) {
-        const baseW = size * 0.35;
-        const w = baseW * phoneme.wide;
-        const h = size * 0.04 + size * 0.14 * phoneme.open;
-        const roundness = phoneme.round;
-        const tension = phoneme.tension;
-        const lipTop = phoneme.lipTop || 0;
-        const lipBottom = phoneme.lipBottom || 0;
+    // ===== RENDER ENGINE =====
+    function drawMouth(ctx, x, y, size, p) {
+        const w = size * 0.35 * p.wide;
+        const h = size * 0.04 + size * 0.14 * p.open;
+        const smileOffset = (p.smile || 0) * h * 0.3;
 
         ctx.save();
         ctx.translate(x, y);
 
-        // Soft shadow under lower lip
+        // Shadow
         ctx.fillStyle = 'rgba(0,0,0,0.12)';
         ctx.beginPath();
-        ctx.ellipse(0, h * 0.4 + lipBottom * 3, w * 1.15, (h * 0.4 + lipBottom * 2), 0, 0, Math.PI * 2);
+        ctx.ellipse(0, h * 0.4, w * 1.1, h * 0.4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner mouth cavity
-        if (phoneme.open > 0.08) {
-            // Dark mouth interior
-            const gradient = ctx.createRadialGradient(0, h * 0.1, 0, 0, h * 0.1, Math.max(w, h));
-            gradient.addColorStop(0, '#0a0505');
-            gradient.addColorStop(1, '#1a0a0a');
-            ctx.fillStyle = gradient;
+        // Mouth cavity
+        if (p.open > 0.08) {
+            const g = ctx.createRadialGradient(0, h * 0.1, 0, 0, h * 0.1, Math.max(w, h));
+            g.addColorStop(0, '#0a0505'); g.addColorStop(1, '#1a0a0a');
+            ctx.fillStyle = g;
             ctx.beginPath();
-            if (roundness > 0.25) {
-                const r = Math.min(w, h) * (0.6 + roundness * 0.4);
+            if (p.round > 0.25) {
+                const r = Math.min(w, h) * (0.6 + p.round * 0.4);
                 ctx.ellipse(0, h * 0.05, r * 0.85, r * 1.1, 0, 0, Math.PI * 2);
             } else {
                 ctx.ellipse(0, h * 0.05, w, h * 1.05, 0, 0, Math.PI * 2);
             }
             ctx.fill();
 
-            // Upper teeth - more realistic
-            if (phoneme.open > 0.18) {
-                const teethH = h * 0.3 * Math.min(1, phoneme.open * 2);
-                const teethW = w * 0.65;
-
-                // Teeth background (gum line)
-                ctx.fillStyle = 'rgba(200,140,140,0.4)';
-                ctx.beginPath();
-                ctx.ellipse(0, -h * 0.12, teethW * 1.05, teethH * 0.5, 0, 0, Math.PI);
-                ctx.fill();
-
-                // Individual teeth hints
-                ctx.fillStyle = 'rgba(255,252,248,0.92)';
-                const numTeeth = 5;
-                const toothWidth = (teethW * 1.4) / numTeeth;
-                for (let i = 0; i < numTeeth; i++) {
-                    const tx = -teethW * 0.7 + i * toothWidth + toothWidth * 0.5;
-                    const tw = toothWidth * 0.7;
-                    const th = teethH * (0.7 + Math.sin(i * 0.8) * 0.2);
+            // Teeth
+            if (p.open > 0.18) {
+                const tw = w * 0.65, th = h * 0.3 * Math.min(1, p.open * 2);
+                ctx.fillStyle = 'rgba(255,252,248,0.9)';
+                for (let i = 0; i < 5; i++) {
+                    const tx = -tw * 0.7 + i * (tw * 1.4 / 5) + (tw * 0.7 / 5);
                     ctx.beginPath();
-                    ctx.roundRect(tx - tw/2, -h * 0.15, tw, th, 2);
+                    ctx.roundRect(tx - tw * 0.06, -h * 0.15, tw * 0.12, th, 2);
                     ctx.fill();
                 }
             }
 
             // Tongue
-            if (phoneme.open > 0.35) {
-                const tongueH = h * 0.3 * Math.min(1, phoneme.open * 1.5);
-                const tongueW = w * 0.45;
-                const gradient = ctx.createRadialGradient(0, h * 0.35, 0, 0, h * 0.35, tongueH);
-                gradient.addColorStop(0, 'rgba(200,100,100,0.7)');
-                gradient.addColorStop(1, 'rgba(160,70,70,0.4)');
-                ctx.fillStyle = gradient;
+            if (p.open > 0.35) {
+                const tg = ctx.createRadialGradient(0, h * 0.35, 0, 0, h * 0.35, h * 0.3);
+                tg.addColorStop(0, 'rgba(200,100,100,0.7)'); tg.addColorStop(1, 'rgba(160,70,70,0.4)');
+                ctx.fillStyle = tg;
                 ctx.beginPath();
-                ctx.ellipse(0, h * 0.35, tongueW, tongueH, 0, 0, Math.PI);
-                ctx.fill();
-            }
-
-            // Inner lip highlight (wet look)
-            if (phoneme.open > 0.15) {
-                ctx.fillStyle = 'rgba(255,200,200,0.15)';
-                ctx.beginPath();
-                ctx.ellipse(0, -h * 0.3, w * 0.7, h * 0.15, 0, 0, Math.PI);
+                ctx.ellipse(0, h * 0.35, w * 0.45, h * 0.3, 0, 0, Math.PI);
                 ctx.fill();
             }
         }
 
-        // === LIPS ===
-        const lipW = size * 0.018 * (1 + tension * 0.4);
-        const lipColor = `rgba(160,80,80,${0.65 + tension * 0.2})`;
-
-        ctx.strokeStyle = lipColor;
-        ctx.lineWidth = lipW;
+        // Lips
+        const lw = size * 0.016;
+        ctx.strokeStyle = 'rgba(160,80,80,0.65)';
+        ctx.lineWidth = lw;
         ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
 
         // Upper lip with Cupid's bow
-        const upperLipH = h * 0.35 + lipTop * 4;
+        const ulh = h * 0.35;
         ctx.beginPath();
-        ctx.moveTo(-w * (0.95 + tension * 0.05), 0);
-        // Left side
-        ctx.bezierCurveTo(
-            -w * 0.6, -upperLipH * 0.4,
-            -w * 0.15, -upperLipH * 0.9,
-            0, -upperLipH * 0.35
-        );
-        // Right side
-        ctx.bezierCurveTo(
-            w * 0.15, -upperLipH * 0.9,
-            w * 0.6, -upperLipH * 0.4,
-            w * (0.95 + tension * 0.05), 0
-        );
+        ctx.moveTo(-w * 0.95, smileOffset);
+        ctx.bezierCurveTo(-w * 0.6, -ulh * 0.4 + smileOffset, -w * 0.15, -ulh * 0.9 + smileOffset, 0, -ulh * 0.35 + smileOffset);
+        ctx.bezierCurveTo(w * 0.15, -ulh * 0.9 + smileOffset, w * 0.6, -ulh * 0.4 + smileOffset, w * 0.95, smileOffset);
         ctx.stroke();
 
-        // Lower lip - fuller, more curved
-        const lowerLipH = h * 0.55 + lipBottom * 5;
+        // Lower lip
+        const llh = h * 0.55;
         ctx.beginPath();
-        ctx.moveTo(-w * (0.9 + tension * 0.05), 0);
-        ctx.bezierCurveTo(
-            -w * 0.55, lowerLipH * 0.5,
-            -w * 0.15, lowerLipH * 0.95,
-            0, lowerLipH
-        );
-        ctx.bezierCurveTo(
-            w * 0.15, lowerLipH * 0.95,
-            w * 0.55, lowerLipH * 0.5,
-            w * (0.9 + tension * 0.05), 0
-        );
+        ctx.moveTo(-w * 0.9, smileOffset);
+        ctx.bezierCurveTo(-w * 0.55, llh * 0.5 + smileOffset, -w * 0.15, llh * 0.95 + smileOffset, 0, llh + smileOffset);
+        ctx.bezierCurveTo(w * 0.15, llh * 0.95 + smileOffset, w * 0.55, llh * 0.5 + smileOffset, w * 0.9, smileOffset);
         ctx.stroke();
-
-        // Lip highlight (gloss)
-        if (phoneme.open < 0.3) {
-            ctx.strokeStyle = 'rgba(255,220,220,0.2)';
-            ctx.lineWidth = lipW * 0.4;
-            ctx.beginPath();
-            ctx.moveTo(-w * 0.4, -upperLipH * 0.15);
-            ctx.quadraticCurveTo(0, -upperLipH * 0.5, w * 0.4, -upperLipH * 0.15);
-            ctx.stroke();
-        }
 
         ctx.restore();
     }
 
-    // Render avatar with realistic lip sync
-    let lastTime = performance.now();
-
     function renderAvatar(params) {
         const now = performance.now();
-        const dt = Math.min((now - lastTime) / 16.67, 3); // Normalize to ~60fps
+        const dt = Math.min((now - lastTime) / 16.67, 3);
         lastTime = now;
 
         const w = avatarCanvas.width;
         const h = avatarCanvas.height;
         avatarCtx.clearRect(0, 0, w, h);
 
-        // Background
-        avatarCtx.fillStyle = '#1a1a2e';
-        avatarCtx.fillRect(0, 0, w, h);
+        bgPresets[bgStyle]?.(avatarCtx, w, h) || bgPresets.dark(avatarCtx, w, h);
 
         if (!avatarImage || !avatarImage.complete) {
-            avatarCtx.fillStyle = '#666';
-            avatarCtx.font = '18px Inter, sans-serif';
+            avatarCtx.fillStyle = '#555';
+            avatarCtx.font = '16px Inter, sans-serif';
             avatarCtx.textAlign = 'center';
-            avatarCtx.fillText('Upload a photo to begin', w/2, h/2);
+            avatarCtx.fillText('Upload a photo to begin', w / 2, h / 2);
             return;
         }
 
         const rot = params.head_rotation || { x: 0, y: 0, z: 0 };
-        const face = params.face || {};
-        const phoneme = params.phoneme || { open: 0, wide: 0.5, round: 0, jaw: 0, tension: 0, lipTop: 0, lipBottom: 0 };
+        const p = params.phoneme || {};
 
-        // Update springs with phoneme targets
-        anim.mouthOpen.set(phoneme.open);
-        anim.mouthWidth.set(phoneme.wide);
-        anim.mouthRound.set(phoneme.round);
-        anim.jawDrop.set(phoneme.jaw);
-        anim.lipTop.set(phoneme.lipTop || 0);
-        anim.lipBottom.set(phoneme.lipBottom || 0);
-        anim.headX.set(rot.x * 0.7);
-        anim.headY.set(rot.y * 0.7);
-        anim.headZ.set(rot.z * 0.5);
+        anim.headX.set(rot.x * 0.7); anim.headY.set(rot.y * 0.7); anim.headZ.set(rot.z * 0.5);
+        anim.mouthOpen.set(p.open || 0); anim.mouthWidth.set(p.wide || 0.5); anim.mouthRound.set(p.round || 0);
+        anim.jawDrop.set(p.jaw || 0); anim.lipTop.set(p.lipTop || 0); anim.lipBottom.set(p.lipBottom || 0);
+        anim.smile.set(p.smile || 0);
 
-        // Natural idle micro-movements
         const time = now * 0.001;
-        const idleX = Math.sin(time * 0.7) * 0.8;
-        const idleY = Math.sin(time * 0.5) * 0.5;
-        const idleZ = Math.sin(time * 0.3) * 0.3;
+        const idleX = Math.sin(time * 0.7) * 0.4;
+        const idleY = Math.sin(time * 0.5) * 0.3;
 
-        // Blink logic
-        anim.blinkTimer += dt * 0.016;
-        if (anim.blinkTimer > 3 + Math.random() * 4) {
-            anim.blinkState = 1;
-            anim.blinkTimer = 0;
-        }
-        if (anim.blinkState > 0) {
-            anim.blinkState += dt * 0.15;
-            if (anim.blinkState > 1) {
-                anim.eyeOpenness.set(0);
-            }
-            if (anim.eyeOpenness.current < 0.1) {
-                anim.eyeOpenness.set(1);
-            }
-            if (anim.blinkState > 2) {
-                anim.blinkState = 0;
-            }
-        }
-
-        // Get spring values
-        const mouthOpen = anim.mouthOpen.update(dt);
-        const mouthWidth = anim.mouthWidth.update(dt);
-        const mouthRound = anim.mouthRound.update(dt);
-        const jawDrop = anim.jawDrop.update(dt);
-        const lipTop = anim.lipTop.update(dt);
-        const lipBottom = anim.lipBottom.update(dt);
-        const headX = (anim.headX.update(dt) + idleX) * (1 + jawDrop * 0.1);
+        const headX = (anim.headX.update(dt) + idleX) * (1 + anim.jawDrop.current * 0.1);
         const headY = anim.headY.update(dt) + idleY;
-        const headZ = anim.headZ.update(dt) + idleZ;
+        const headZ = anim.headZ.update(dt) + Math.sin(time * 0.3) * 0.15;
 
         avatarCtx.save();
-        avatarCtx.translate(w/2, h/2);
+        avatarCtx.translate(w / 2, h / 2);
 
-        // Apply head rotation with perspective
         const rotX = headX * Math.PI / 180;
         const rotY = headY * Math.PI / 180;
-        const rotZ = headZ * Math.PI / 180;
-
         const perspScale = 1 - Math.abs(rotX) * 0.0008 - Math.abs(rotY) * 0.0005;
-        const offsetX = rotY * 2.5 + jawDrop * Math.sin(rotX) * 0.5;
-        const offsetY = rotX * 2 + jawDrop * 2;
+        const offsetX = rotY * 2.5;
+        const offsetY = rotX * 2 + anim.jawDrop.current * 2;
 
-        avatarCtx.rotate(rotZ * 0.6);
+        avatarCtx.rotate(headZ * Math.PI / 180 * 0.6);
         avatarCtx.translate(offsetX, offsetY);
-        avatarCtx.scale(perspScale, 1 - Math.abs(rotX) * 0.0003 + jawDrop * 0.002);
+        avatarCtx.scale(perspScale, 1 - Math.abs(rotX) * 0.0003 + anim.jawDrop.current * 0.002);
 
-        // Draw avatar image
         const imgW = Math.min(w * 0.85, avatarImage.width);
         const imgH = imgW * (avatarImage.height / avatarImage.width);
-        avatarCtx.drawImage(avatarImage, -imgW/2, -imgH/2, imgW, imgH);
+        avatarCtx.drawImage(avatarImage, -imgW / 2, -imgH / 2, imgW, imgH);
 
-        // Draw mouth overlay on face
-        // Position assumes face is roughly centered with mouth at ~60% from top
-        const mouthY = -imgH * 0.08 + jawDrop * 3;
+        const mouthY = -imgH * 0.08 + anim.jawDrop.current * 3;
         const mouthSize = imgW * 0.4;
 
         drawMouth(avatarCtx, 0, mouthY, mouthSize, {
-            open: mouthOpen,
-            wide: mouthWidth,
-            round: mouthRound,
-            jaw: jawDrop,
-            tension: phoneme.tension || 0,
-            lipTop: lipTop,
-            lipBottom: lipBottom
-        }, mouthOpen);
+            open: anim.mouthOpen.update(dt),
+            wide: anim.mouthWidth.update(dt),
+            round: anim.mouthRound.update(dt),
+            jaw: anim.jawDrop.current,
+            lipTop: anim.lipTop.update(dt),
+            lipBottom: anim.lipBottom.update(dt),
+            smile: anim.smile.update(dt)
+        });
 
         avatarCtx.restore();
     }
 
-    // Live speech
+    // Render loop for speech mode (when not getting face mesh callbacks)
+    function renderLoop() {
+        if (currentMode === 'speech' && !isTracking) {
+            const time = performance.now() * 0.001;
+            renderAvatar({
+                head_rotation: { x: Math.sin(time * 0.7) * 2, y: Math.sin(time * 0.5) * 2, z: 0 },
+                phoneme: { open: 0, wide: 0.5, round: 0, jaw: 0, lipTop: 0, lipBottom: 0, smile: 0 }
+            });
+        }
+        requestAnimationFrame(renderLoop);
+    }
+    renderLoop();
+
+    // ===== SPEECH MODE =====
     speakBtn.addEventListener('click', async () => {
         const text = speechText.value.trim();
         if (!text) return;
-
         speakBtn.disabled = true;
-        speakBtn.innerHTML = '<span>Speaking...</span>';
-
+        speakBtn.innerHTML = '<span>Sending...</span>';
         try {
-            // Get TTS audio
             const res = await fetch(`${API_BASE}/api/live/speak?text=${encodeURIComponent(text)}&voice=${voiceSelect.value}`, { method: 'POST' });
             const data = await res.json();
-
-            // Play audio
             const audio = new Audio(`${API_BASE}${data.audio_url}`);
             audio.crossOrigin = 'anonymous';
 
-            // Setup audio visualizer with higher resolution
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
-                analyser.fftSize = 512; // Higher resolution for better phoneme detection
-                analyser.smoothingTimeConstant = 0.7; // Smooth frequency data
+                analyser.fftSize = 512;
+                analyser.smoothingTimeConstant = 0.7;
             }
 
             const source = audioContext.createMediaElementSource(audio);
             source.connect(analyser);
             analyser.connect(audioContext.destination);
 
-            // Animate mouth while audio plays
             const bufferLength = analyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
             let lastEnergy = 0;
@@ -1295,67 +815,62 @@
             function animateMouth() {
                 analyser.getByteFrequencyData(dataArray);
 
-                // Detect phoneme from frequency spectrum
-                const phoneme = detectPhoneme(dataArray);
-
-                // Calculate smoothed energy for secondary effects
                 let energy = 0;
-                for (let i = 0; i < 24; i++) energy += dataArray[i];
-                energy = energy / 24 / 255;
+                for (let i = 0; i < 20; i++) energy += dataArray[i];
+                energy = energy / 20 / 255;
                 const smoothEnergy = lastEnergy * 0.7 + energy * 0.3;
                 lastEnergy = smoothEnergy;
 
-                // Subtle head bob synchronized with speech rhythm
-                const time = performance.now() * 0.001;
-                const headBobX = Math.sin(time * 2.8) * smoothEnergy * 4;
-                const headBobY = Math.sin(time * 2.1 + 0.5) * smoothEnergy * 3;
-                const headBobZ = Math.sin(time * 1.5 + 1) * smoothEnergy * 1.5;
+                let bands = [0, 0, 0];
+                for (let i = 0; i < 8; i++) bands[0] += dataArray[i];
+                for (let i = 8; i < 20; i++) bands[1] += dataArray[i];
+                for (let i = 20; i < 40; i++) bands[2] += dataArray[i];
+                bands = bands.map(b => b / 255);
 
-                // Update avatar with phoneme-driven animation
+                const isWide = bands[2] > bands[1];
+                const isRound = bands[0] > bands[2] * 0.5 && !isWide;
+
+                const time = performance.now() * 0.001;
                 renderAvatar({
-                    head_rotation: { x: headBobX, y: headBobY, z: headBobZ },
-                    face: { mouth_open: phoneme.open },
-                    phoneme: phoneme,
-                    confidence: 1
+                    head_rotation: {
+                        x: Math.sin(time * 2.8) * smoothEnergy * 3,
+                        y: Math.sin(time * 2.1 + 0.5) * smoothEnergy * 2,
+                        z: Math.sin(time * 1.5 + 1) * smoothEnergy * 1
+                    },
+                    phoneme: {
+                        open: smoothEnergy * 1.5,
+                        wide: isWide ? 0.75 : 0.45,
+                        round: isRound ? 0.6 : 0.1,
+                        jaw: smoothEnergy * 0.8,
+                        lipTop: smoothEnergy * 0.3,
+                        lipBottom: smoothEnergy * 0.5,
+                        smile: smoothEnergy * 0.2
+                    }
                 });
 
-                // Update meters with different frequency bands
-                const meterBands = [[0,16], [16,32], [32,48], [48,64]];
+                const mBands = [[0,16],[16,32],[32,48],[48,64]];
                 for (let i = 0; i < 4; i++) {
-                    let sum = 0;
-                    for (let j = meterBands[i][0]; j < meterBands[i][1] && j < bufferLength; j++) {
-                        sum += dataArray[j];
-                    }
-                    const val = sum / (meterBands[i][1] - meterBands[i][0]) / 255;
-                    document.getElementById(`meter-${i+1}`).style.width = (val * 100) + '%';
+                    let s = 0;
+                    for (let j = mBands[i][0]; j < mBands[i][1] && j < bufferLength; j++) s += dataArray[j];
+                    document.getElementById(`meter-${i+1}`).style.width = (s / (mBands[i][1]-mBands[i][0]) / 255 * 100) + '%';
                 }
 
-                // Draw audio visualizer
                 drawAudioVisualizer(dataArray);
-
-                if (!audio.paused && !audio.ended) {
-                    requestAnimationFrame(animateMouth);
-                }
+                if (!audio.paused && !audio.ended) requestAnimationFrame(animateMouth);
             }
 
             audio.onplay = () => animateMouth();
             audio.onended = () => {
-                anim.mouthOpen.snap(0);
+                Object.values(anim).forEach(a => { if (a.snap) a.snap(0); });
                 anim.mouthWidth.snap(0.5);
-                anim.mouthRound.snap(0);
-                anim.jawDrop.snap(0);
-                anim.headX.snap(0);
-                anim.headY.snap(0);
-                anim.headZ.snap(0);
                 for (let i = 1; i <= 4; i++) document.getElementById(`meter-${i}`).style.width = '0%';
             };
 
             await audio.play();
-        } catch (e) {
-            showError('Speech failed: ' + e.message);
-        } finally {
+        } catch (e) { showError('Speech failed: ' + e.message); }
+        finally {
             speakBtn.disabled = false;
-            speakBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg> Speak`;
+            speakBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg> Speak`;
         }
     });
 
@@ -1363,20 +878,17 @@
 
     function drawAudioVisualizer(dataArray) {
         const w = audioCanvas.width = audioCanvas.parentElement.clientWidth;
-        const h = audioCanvas.height = 60;
+        const h = audioCanvas.height = 50;
         audioCtx2d.clearRect(0, 0, w, h);
-
-        const barWidth = w / dataArray.length * 2.5;
+        const bw = w / dataArray.length * 2.5;
         let x = 0;
-
         for (let i = 0; i < dataArray.length; i++) {
-            const barHeight = (dataArray[i] / 255) * h;
-            const gradient = audioCtx2d.createLinearGradient(0, h - barHeight, 0, h);
-            gradient.addColorStop(0, '#6366f1');
-            gradient.addColorStop(1, '#ec4899');
-            audioCtx2d.fillStyle = gradient;
-            audioCtx2d.fillRect(x, h - barHeight, barWidth - 1, barHeight);
-            x += barWidth;
+            const bh = (dataArray[i] / 255) * h;
+            const g = audioCtx2d.createLinearGradient(0, h - bh, 0, h);
+            g.addColorStop(0, '#6366f1'); g.addColorStop(1, '#ec4899');
+            audioCtx2d.fillStyle = g;
+            audioCtx2d.fillRect(x, h - bh, bw - 1, bh);
+            x += bw;
             if (x > w) break;
         }
     }
@@ -1387,20 +899,21 @@
         setTimeout(() => document.getElementById('error-toast').classList.add('hidden'), 5000);
     }
 
-    // Theme toggle
+    // Theme
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
     document.getElementById('theme-toggle').addEventListener('click', () => {
-        const current = document.documentElement.getAttribute('data-theme');
-        const next = current === 'dark' ? 'light' : 'dark';
+        const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', next);
         localStorage.setItem('theme', next);
     });
 
-    // Draw initial avatar canvas
+    // Init canvas
     avatarCanvas.width = 640;
     avatarCanvas.height = 480;
-    renderAvatar({ head_rotation: { x: 0, y: 0, z: 0 }, face: { mouth_open: 0 }, phoneme: { open: 0, wide: 0.5, round: 0, jaw: 0, tension: 0 }, confidence: 1 });
+    landmarkCanvas.width = 640;
+    landmarkCanvas.height = 480;
+    bgPresets.dark(avatarCtx, 640, 480);
     </script>
 </body>
 </html>
