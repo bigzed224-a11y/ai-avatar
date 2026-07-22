@@ -1,4 +1,6 @@
-const API_BASE = 'http://localhost:8000';
+// LipSync AI - Frontend Application
+
+const API_BASE = window.location.origin;
 
 // State
 let state = {
@@ -41,15 +43,43 @@ function init() {
     loadVoices();
     loadHistory();
     checkBackend();
+    setupMobileMenu();
+}
+
+function setupMobileMenu() {
+    const menuBtn = document.querySelector('.mobile-menu-btn');
+    const navLinks = document.querySelector('.nav-links');
+    if (menuBtn && navLinks) {
+        menuBtn.addEventListener('click', () => {
+            navLinks.style.display = navLinks.style.display === 'flex' ? 'none' : 'flex';
+            navLinks.style.position = 'absolute';
+            navLinks.style.top = '72px';
+            navLinks.style.right = '24px';
+            navLinks.style.background = 'white';
+            navLinks.style.padding = '24px';
+            navLinks.style.borderRadius = '12px';
+            navLinks.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
+            navLinks.style.flexDirection = 'column';
+            navLinks.style.gap = '16px';
+        });
+    }
 }
 
 function setupEventListeners() {
     el.dropZone.addEventListener('click', () => el.photoInput.click());
-    el.dropZone.addEventListener('dragover', e => { e.preventDefault(); el.dropZone.classList.add('dragover'); });
+    el.dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        el.dropZone.classList.add('dragover');
+    });
     el.dropZone.addEventListener('dragleave', () => el.dropZone.classList.remove('dragover'));
     el.dropZone.addEventListener('drop', handleDrop);
-    el.photoInput.addEventListener('change', e => { if (e.target.files[0]) uploadPhoto(e.target.files[0]); });
-    el.changePhotoBtn.addEventListener('click', () => { el.photoInput.value = ''; el.photoInput.click(); });
+    el.photoInput.addEventListener('change', e => {
+        if (e.target.files[0]) uploadPhoto(e.target.files[0]);
+    });
+    el.changePhotoBtn.addEventListener('click', () => {
+        el.photoInput.value = '';
+        el.photoInput.click();
+    });
     el.textInput.addEventListener('input', handleTextInput);
     el.speakBtn.addEventListener('click', handleGenerate);
     el.downloadBtn.addEventListener('click', handleDownload);
@@ -60,8 +90,11 @@ function handleDrop(e) {
     e.preventDefault();
     el.dropZone.classList.remove('dragover');
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) uploadPhoto(file);
-    else showError('Please upload an image file');
+    if (file && file.type.startsWith('image/')) {
+        uploadPhoto(file);
+    } else {
+        showError('Please upload an image file');
+    }
 }
 
 // Upload Photo
@@ -71,9 +104,15 @@ async function uploadPhoto(file) {
     formData.append('file', file);
 
     try {
-        const response = await fetch(`${API_BASE}/api/upload`, { method: 'POST', body: formData });
-        if (!response.ok) throw new Error((await response.json()).detail || 'Upload failed');
-        
+        const response = await fetch(`${API_BASE}/api/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || 'Upload failed');
+        }
+
         const data = await response.json();
         state.uploadedFileId = data.file_id;
 
@@ -81,10 +120,10 @@ async function uploadPhoto(file) {
         el.photoName.textContent = file.name;
         el.previewContainer.classList.remove('hidden');
         el.dropZone.classList.add('hidden');
-        
+
         document.getElementById('text-section').classList.add('active');
         document.getElementById('upload-section').classList.add('completed');
-        
+
         updateGenerateButton();
         setStatus('Photo uploaded');
     } catch (error) {
@@ -108,7 +147,7 @@ function renderVoiceOptions() {
     el.voiceOptions.innerHTML = Object.entries(state.voices).map(([key, voice]) => `
         <button class="voice-btn ${key === state.selectedVoice ? 'selected' : ''}" data-voice="${key}">
             <span class="voice-name">${voice.name.split(' ')[0]}</span>
-            <span class="voice-gender">${voice.gender === 'female' ? '♀' : '♂'}</span>
+            <span class="voice-gender">${voice.gender === 'female' ? '\u2640' : '\u2642'}</span>
         </button>
     `).join('');
 
@@ -136,17 +175,17 @@ function updateGenerateButton() {
 // Generate
 async function handleGenerate() {
     if (state.isProcessing) return;
-    
+
     const text = el.textInput.value.trim();
     if (!text || !state.uploadedFileId) return;
-    
+
     state.isProcessing = true;
     updateGenerateButton();
-    
+
     el.loading.classList.remove('hidden');
     el.resultContainer.classList.add('hidden');
     document.getElementById('result-section').classList.add('active');
-    
+
     let progress = 0;
     const progressInterval = setInterval(() => {
         if (progress < 90) {
@@ -154,26 +193,29 @@ async function handleGenerate() {
             updateProgress(progress);
         }
     }, 500);
-    
+
     try {
         setStatus('Generating video...');
         el.loadingText.textContent = 'Converting text to speech...';
-        
+
         const response = await fetch(
             `${API_BASE}/api/speak?text=${encodeURIComponent(text)}&file_id=${state.uploadedFileId}&voice=${state.selectedVoice}`,
             { method: 'POST' }
         );
 
         clearInterval(progressInterval);
-        
-        if (!response.ok) throw new Error((await response.json()).detail || 'Generation failed');
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || 'Generation failed');
+        }
 
         const data = await response.json();
         state.currentVideoId = data.video_id;
-        
+
         updateProgress(100);
         el.loadingText.textContent = 'Done!';
-        
+
         setTimeout(() => {
             el.loading.classList.add('hidden');
             el.resultContainer.classList.remove('hidden');
@@ -182,7 +224,7 @@ async function handleGenerate() {
             setStatus('Video generated!');
             loadHistory();
         }, 500);
-        
+
     } catch (error) {
         clearInterval(progressInterval);
         el.loading.classList.add('hidden');
@@ -218,14 +260,24 @@ function renderHistory(history) {
 
     el.historyContainer.innerHTML = `<div class="history-list">${history.map(item => `
         <div class="history-item">
-            <div class="history-thumb">🎬</div>
+            <div class="history-thumb">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+            </div>
             <div class="history-info">
                 <div class="history-text">${escapeHtml(item.text || 'No text')}</div>
                 <div class="history-date">${new Date(item.created_at * 1000).toLocaleString()}</div>
             </div>
             <div class="history-actions">
-                <button class="secondary-btn" onclick="playHistoryVideo('${item.video_id}')">Play</button>
-                <button class="secondary-btn" onclick="downloadHistoryVideo('${item.video_id}')">↓</button>
+                <button class="btn btn-secondary btn-sm" onclick="playHistoryVideo('${item.video_id}')">Play</button>
+                <button class="btn btn-secondary btn-sm" onclick="downloadHistoryVideo('${item.video_id}')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </button>
             </div>
         </div>
     `).join('')}</div>`;
@@ -234,6 +286,7 @@ function renderHistory(history) {
 function playHistoryVideo(videoId) {
     state.currentVideoId = videoId;
     el.resultContainer.classList.remove('hidden');
+    el.loading.classList.add('hidden');
     el.resultVideo.src = `${API_BASE}/api/video/${videoId}`;
     document.getElementById('result-section').classList.add('active');
     document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
@@ -274,8 +327,14 @@ function showError(message) {
     setTimeout(hideError, 5000);
 }
 
-function hideError() { el.errorToast.classList.add('hidden'); }
-function setStatus(text) { el.statusBar.textContent = text; }
+function hideError() {
+    el.errorToast.classList.add('hidden');
+}
+
+function setStatus(text) {
+    el.statusBar.textContent = text;
+}
+
 window.hideError = hideError;
 
 async function checkBackend() {
@@ -285,9 +344,10 @@ async function checkBackend() {
         console.log('Backend:', data);
         setStatus('Connected');
     } catch (error) {
-        setStatus('Server not running');
-        showError('Cannot connect to backend. Start with: cd backend && python main.py');
+        setStatus('Server not available');
+        showError('Cannot connect to the server. Please try again later.');
     }
 }
 
+// Start the app
 init();
