@@ -1,8 +1,0 @@
-{
-  "version": 2,
-  "routes": [
-    { "src": "/app", "dest": "/index.html" },
-    { "src": "/realtime", "dest": "/realtime.html" },
-    { "src": "/(.*)", "dest": "/$1" }
-  ]
-}
