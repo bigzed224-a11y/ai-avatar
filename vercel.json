@@ -1,8 +1,8 @@
 {
   "version": 2,
   "routes": [
-    { "src": "/app", "dest": "/frontend/index.html" },
-    { "src": "/realtime", "dest": "/frontend/realtime.html" },
-    { "src": "/(.*)", "dest": "/frontend/$1" }
+    { "src": "/app", "dest": "/index.html" },
+    { "src": "/realtime", "dest": "/realtime.html" },
+    { "src": "/(.*)", "dest": "/$1" }
   ]
 }
