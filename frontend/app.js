@@ -44,6 +44,7 @@ function init() {
     loadHistory();
     checkBackend();
     setupMobileMenu();
+    setupThemeToggle();
 }
 
 function setupMobileMenu() {
@@ -55,7 +56,7 @@ function setupMobileMenu() {
             navLinks.style.position = 'absolute';
             navLinks.style.top = '72px';
             navLinks.style.right = '24px';
-            navLinks.style.background = 'white';
+            navLinks.style.background = 'var(--bg-card)';
             navLinks.style.padding = '24px';
             navLinks.style.borderRadius = '12px';
             navLinks.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
@@ -63,6 +64,22 @@ function setupMobileMenu() {
             navLinks.style.gap = '16px';
         });
     }
+}
+
+function setupThemeToggle() {
+    const themeToggle = document.getElementById('theme-toggle');
+    const savedTheme = localStorage.getItem('theme') || 'light';
+
+    // Apply saved theme
+    document.documentElement.setAttribute('data-theme', savedTheme);
+
+    themeToggle.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+    });
 }
 
 function setupEventListeners() {
