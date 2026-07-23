@@ -159,8 +159,8 @@ def download_video(job_id: str, output_path: str) -> str:
 
 def generate_lip_sync_video(photo_path: str, audio_path: str) -> str:
     """
-    Generate a lip-sync video using Higgsfield.
-    This combines the photo with audio for realistic lip animation.
+    Generate a lip-sync video using Higgsfield Seedance 2.0.
+    Passes audio for lip-sync alignment.
     
     Args:
         photo_path: Path to the character photo
@@ -175,33 +175,33 @@ def generate_lip_sync_video(photo_path: str, audio_path: str) -> str:
     result_id = str(int(time.time()))
     output_path = str(OUTPUT_DIR / f"higgsfield_{result_id}.mp4")
     
-    # Upload both photo and audio
-    photo_upload = upload_image(photo_path)
+    # Upload audio for lip-sync
     audio_upload = upload_audio(audio_path)
     
-    if not photo_upload:
-        raise RuntimeError("Failed to upload photo to Higgsfield")
+    # Build command with audio flag for lip-sync
+    cmd = [
+        "higgsfield", "generate", "create", "seedance_2_0",
+        "--prompt", "Person speaking naturally with realistic lip sync, subtle head movements, natural facial expressions",
+        "--start-image", photo_path,
+        "--audio", audio_path,
+        "--duration", "8",
+        "--aspect-ratio", "1:1",
+        "--wait", "--json"
+    ]
     
-    # Generate with lip sync prompt
-    prompt = "Natural lip sync animation, person speaking the provided audio with realistic mouth movements, subtle head nod, natural facial expressions"
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     
-    result = generate_video_from_image(
-        image_path=photo_path,
-        prompt=prompt,
-        model="seedance_2_0",
-        duration=10
-    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Higgsfield generation failed: {result.stderr}")
     
-    if "error" in result:
-        raise RuntimeError(result["error"])
+    data = json.loads(result.stdout)
+    job_id = data.get("id")
     
-    # Wait for completion
-    job_result = wait_for_job(result["job_id"])
-    if "error" in job_result:
-        raise RuntimeError(job_result["error"])
+    if not job_id:
+        raise RuntimeError("No job ID returned from Higgsfield")
     
     # Download result
-    downloaded = download_video(result["job_id"], output_path)
+    downloaded = download_video(job_id, output_path)
     if downloaded:
         return downloaded
     

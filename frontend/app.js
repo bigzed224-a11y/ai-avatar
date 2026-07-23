@@ -362,8 +362,15 @@ async function handleGenerate() {
         el.loadingText.textContent = stages[0].text;
         updateProgress(stages[0].progress);
 
+        const useHiggsfield = document.getElementById('higgsfield-toggle')?.checked;
+        const endpoint = useHiggsfield ? 'speak-higgsfield' : 'speak';
+
+        if (useHiggsfield) {
+            el.loadingText.textContent = 'Generating with Higgsfield AI (higher quality)...';
+        }
+
         const response = await fetch(
-            `${API_BASE}/api/speak?text=${encodeURIComponent(text)}&file_id=${state.uploadedFileId}&voice=${state.selectedVoice}`,
+            `${API_BASE}/api/${endpoint}?text=${encodeURIComponent(text)}&file_id=${state.uploadedFileId}&voice=${state.selectedVoice}`,
             { method: 'POST' }
         );
 

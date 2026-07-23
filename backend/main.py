@@ -365,6 +365,64 @@ async def record_audio(
     }
 
 
+@app.post("/api/speak-higgsfield")
+async def speak_higgsfield(
+    text: str = Query(...),
+    file_id: str = Query(...),
+    voice: str = Query(None)
+):
+    """Generate lip-sync video using Higgsfield Seedance 2.0 (higher quality)."""
+    from tts import text_to_speech_edge
+    from higgsfield_integration import generate_lip_sync_video, is_higgsfield_available
+
+    if not is_higgsfield_available():
+        raise HTTPException(status_code=503, detail="Higgsfield not authenticated. Run: higgsfield auth login")
+
+    if file_id not in uploaded_photos:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    if not text or not text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+
+    # Generate TTS
+    try:
+        audio_path = await text_to_speech_edge(text, voice=voice)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
+
+    # Generate lip-sync video via Higgsfield
+    photo_path = uploaded_photos[file_id]["path"]
+    try:
+        video_path = generate_lip_sync_video(photo_path, audio_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Higgsfield generation failed: {str(e)}")
+
+    video_id = Path(video_path).stem
+    generated_videos[video_id] = {
+        "path": video_path,
+        "file_id": file_id,
+        "audio_path": audio_path,
+        "text": text,
+        "voice": voice,
+        "created_at": time.time()
+    }
+
+    video_history.append({
+        "video_id": video_id,
+        "file_id": file_id,
+        "filename": uploaded_photos[file_id]["filename"],
+        "text": text,
+        "voice": voice,
+        "created_at": time.time()
+    })
+
+    return {
+        "video_id": video_id,
+        "video_url": f"/api/video/{video_id}",
+        "message": "Lip-sync video generated via Higgsfield Seedance 2.0",
+        "engine": "higgsfield"
+    }
+
+
 # ===== HISTORY ENDPOINTS =====
 
 @app.get("/api/history")

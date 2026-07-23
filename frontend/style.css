@@ -319,6 +319,69 @@ body {
     50% { opacity: 0.3; }
 }
 
+.engine-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.toggle-label input { display: none; }
+
+.toggle-slider {
+    width: 40px;
+    height: 22px;
+    background: var(--gray-300);
+    border-radius: 11px;
+    position: relative;
+    transition: background 0.2s;
+}
+
+.toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.toggle-label input:checked + .toggle-slider {
+    background: var(--secondary);
+}
+
+.toggle-label input:checked + .toggle-slider::after {
+    transform: translateX(18px);
+}
+
+.toggle-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-left: 50px;
+}
+
+.badge-premium {
+    background: linear-gradient(135deg, var(--secondary), #db2777);
+    color: white;
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
 .btn-secondary {
     background: var(--gray-100);
     color: var(--gray-700);
